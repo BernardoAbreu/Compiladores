@@ -1,0 +1,24 @@
+TP1 - Compiladores
+Nome: Bernardo de Almeida Abreu
+Matricula: 2013007153
+
+Questions on PA1
+----------------
+
+1. Describe your implementation of the stack machine in a single short
+   paragraph.
+A máquina de pilha utiliza uma pilha construida através de herança. Existe uma classe
+padrao para uma pilha vazia e uma classe, que herda da primeira, para uma pilha com elementos.
+Os comandos são implementados através da classe StackCommand, para um comando genérico que irá resultar no
+empilhamento desse comando, e subclases para os comandos "e" e "d". O objeto do tipo StackCommand recebe um comando,
+chama o método execute para o tipo correto de comando, que irá retornar a pilha depois da execução do mesmo.
+
+2. List 3 things that you like about the Cool programming language.
+Orientação a objeto
+simples
+herança
+
+3. List 3 things you DON'T like about Cool.
+Sintaxe
+falta de recursos
+poucas aplicações
