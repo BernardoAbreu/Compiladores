@@ -16,7 +16,7 @@ void dump_Symbol(ostream& stream, int padding, Symbol b);
 void dump_Boolean(ostream& stream, int padding, Boolean b);
 
 
-void Expression_class::dump_type(ostream& stream, int n)
+void Expression_class::set_type(ostream& stream, int n)
 {
   if (type)
     { stream << pad(n) << ": " << type << endl; }
@@ -68,7 +68,7 @@ void class__class::semant_checker(){
 // dump_with_types for method_class first prints that this is a method,
 // then prints the method name followed by the formal parameters
 // (another use of an iterator, this time access all of the list members
-// of type Formal), the return type, and finally calls dump_type recursively
+// of type Formal), the return type, and finally calls set_type recursively
 // on the method body. 
 
 void method_class::semant_checker(){
@@ -116,28 +116,39 @@ void formal_class::semant_checker(){
 // branch_class::dump_with_types dumps the name, type declaration,
 // and body of any case branch.
 //
-void branch_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_branch\n";
-   dump_Symbol(stream, n+2, name);
-   dump_Symbol(stream, n+2, type_decl);
+void branch_class::semant_checker(){
+   if(attribute_map->probe(type_decl) != NULL){
+      attribute_map->addid(type_decl,name);   
+   }
+   else{
+      semant_error(get_filename(),this) << "Variable with type " << type_decl
+         << " already declared on Case" << endl;
+   }
+   
    expr->semant_checker();
 }
 
 //
 // assign_class::dump_with_types prints "assign" and then (indented)
 // the variable being assigned, the expression, and finally the type
-// of the result.  Note the call to dump_type (see above) at the
+// of the result.  Note the call to set_type (see above) at the
 // end of the method.
 //
-void assign_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_assign\n";
-   dump_Symbol(stream, n+2, name);
+void assign_class::semant_checker(){
+   Symbol expr_type, var_type;
+
    expr->semant_checker();
-   dump_type(stream,n);
+   expr_type = expr->get_type();
+   var_type = attribute_map->lookup(name);
+   if (var_type != NULL){
+      finaltype = ((type_check(var_type, expr_type)) ? expr_type : Object);
+   }
+   else{
+      semant_error(get_filename(),this) << "Variable " << name << " not declared" << endl;
+      finaltype = Object;
+   }
+   
+   set_type(finaltype);
 }
 
 //
@@ -156,7 +167,7 @@ void static_dispatch_class::semant_checker()
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->semant_checker();
    stream << pad(n+2) << ")\n";
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 //
@@ -173,7 +184,7 @@ void dispatch_class::semant_checker()
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->semant_checker();
    stream << pad(n+2) << ")\n";
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 //
@@ -187,7 +198,7 @@ void cond_class::semant_checker()
    pred->semant_checker();
    then_exp->semant_checker();
    else_exp->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 //
@@ -200,7 +211,7 @@ void loop_class::semant_checker()
    stream << pad(n) << "_loop\n";
    pred->semant_checker();
    body->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 //
@@ -215,7 +226,7 @@ void typcase_class::semant_checker()
    expr->semant_checker();
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 //
@@ -229,7 +240,7 @@ void block_class::semant_checker()
    stream << pad(n) << "_block\n";
    for(int i = body->first(); body->more(i); i = body->next(i))
      body->nth(i)->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void let_class::semant_checker()
@@ -240,7 +251,7 @@ void let_class::semant_checker()
    dump_Symbol(stream, n+2, type_decl);
    init->semant_checker();
    body->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void plus_class::semant_checker()
@@ -249,7 +260,7 @@ void plus_class::semant_checker()
    stream << pad(n) << "_plus\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void sub_class::semant_checker()
@@ -258,7 +269,7 @@ void sub_class::semant_checker()
    stream << pad(n) << "_sub\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void mul_class::semant_checker()
@@ -267,7 +278,7 @@ void mul_class::semant_checker()
    stream << pad(n) << "_mul\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void divide_class::semant_checker()
@@ -276,7 +287,7 @@ void divide_class::semant_checker()
    stream << pad(n) << "_divide\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void neg_class::semant_checker()
@@ -284,7 +295,7 @@ void neg_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_neg\n";
    e1->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void lt_class::semant_checker()
@@ -293,7 +304,7 @@ void lt_class::semant_checker()
    stream << pad(n) << "_lt\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 
@@ -303,7 +314,7 @@ void eq_class::semant_checker()
    stream << pad(n) << "_eq\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void leq_class::semant_checker()
@@ -312,7 +323,7 @@ void leq_class::semant_checker()
    stream << pad(n) << "_leq\n";
    e1->semant_checker();
    e2->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void comp_class::semant_checker()
@@ -320,7 +331,7 @@ void comp_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_comp\n";
    e1->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void int_const_class::semant_checker()
@@ -328,7 +339,7 @@ void int_const_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_int\n";
    dump_Symbol(stream, n+2, token);
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void bool_const_class::semant_checker()
@@ -336,7 +347,7 @@ void bool_const_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_bool\n";
    dump_Boolean(stream, n+2, val);
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void string_const_class::semant_checker()
@@ -346,7 +357,7 @@ void string_const_class::semant_checker()
    stream << pad(n+2) << "\"";
    print_escaped_string(stream,token->get_string());
    stream << "\"\n";
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void new__class::semant_checker()
@@ -354,7 +365,7 @@ void new__class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_new\n";
    dump_Symbol(stream, n+2, type_name);
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void isvoid_class::semant_checker()
@@ -362,14 +373,14 @@ void isvoid_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_isvoid\n";
    e1->semant_checker();
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void no_expr_class::semant_checker()
 {
    dump_line(stream,n,this);
    stream << pad(n) << "_no_expr\n";
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
 void object_class::semant_checker()
@@ -377,6 +388,6 @@ void object_class::semant_checker()
    dump_line(stream,n,this);
    stream << pad(n) << "_object\n";
    dump_Symbol(stream, n+2, name);
-   dump_type(stream,n);
+   set_type(stream,n);
 }
 
