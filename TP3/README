@@ -1,0 +1,8 @@
+Bernardo de Almeida Abreu
+2013007153
+
+Os erros dos quais o parser tenta se recuperar são erros em uma feature em uma lista de features,
+em um assignment em um let, uma classe em uma lista de classes e uma expression em um bloco.
+
+Os erros testados em bad.cl foram uso de caracteres errados em uma expressão, falta de palavras reservadas onde necessário,
+falta de ponto e virgula e falta de identificadores.
