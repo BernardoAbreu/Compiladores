@@ -1,0 +1,40 @@
+Nome: Bernardo de Almeida Abreu
+Matrícula: 2013007153
+
+Ao tratar erros dentro de comentários ou strings o lexer vai retornar somente o primeiro erro.
+
+Ao testar o seguinte pedaço de código no compilador original:
+
+ mytest() : SELF_TYPE {{
+        (lEt x : Int iN
+            iF (1 < 2) tHeN x <- 0 else x == 2
+        )
+        (let Var: String <- "wrong ObjectId" in
+            out_string(Var)
+        )
+        (let var2: String <- "Non-escaped line break" in
+            out_string(var2)
+        )
+         
+    }};
+
+O compilador acusa erros devido a falta de ; ao fim dos parenteses. Se o código for esse:
+
+mytest() : SELF_TYPE {{
+        (lEt x : Int iN
+            iF (1 < 2) tHeN x <- 0 else x == 2
+        )
+        (let Var: String <- "wrong ObjectId" in
+            out_string(Var)
+        )
+        (let var2: String <- "Non-escaped 
+line break" in
+            out_string(var2)
+        )
+         
+    }};
+
+O compilador não mais acusa os erros devido a presença de uma string em duas linhas não escapada,
+o que não ocorre se a string estiver escapada ou, como mostrado antes, em uma linha.
+Com o lexer implementado para esse trabalho o erro é acusado pelo compilador mesmo que a string não
+tenha sido escapada em uma nova linha. Isso pode gerar algumas diferenças na execução dos dois compiladores.
