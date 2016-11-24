@@ -9,6 +9,15 @@
 #include "cool-tree.h"
 #include "utilities.h"
 
+
+/*********************************************
+TODO
+
+CHECK METHOD OR ATTRIBUTE EXISTENCE FOR ALL
+
+**********************************************/
+
+
 // defined in stringtab.cc
 void dump_Symbol(ostream& stream, int padding, Symbol b); 
 
@@ -88,7 +97,7 @@ void method_class::semant_checker(){
    attribute_map->exitscope();
 }
 
-//
+//TODO
 //  attr_class::dump_with_types prints the attribute name, type declaration,
 //  and any initialization expression at the appropriate offset.
 //
@@ -151,7 +160,7 @@ void assign_class::semant_checker(){
    set_type(finaltype);
 }
 
-//
+//TODO
 // static_dispatch_class::dump_with_types prints the expression,
 // static dispatch class, function name, and actual arguments
 // of any static dispatch.  
@@ -170,7 +179,7 @@ void static_dispatch_class::semant_checker()
    set_type(stream,n);
 }
 
-//
+//TODO
 //   dispatch_class::dump_with_types is similar to 
 //   static_dispatch_class::dump_with_types 
 //
@@ -191,27 +200,32 @@ void dispatch_class::semant_checker()
 // cond_class::dump_with_types dumps each of the three expressions
 // in the conditional and then the type of the entire expression.
 //
-void cond_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_cond\n";
+void cond_class::semant_checker(){
+
    pred->semant_checker();
    then_exp->semant_checker();
    else_exp->semant_checker();
-   set_type(stream,n);
+
+   if (pred->get_type() != Bool){
+      semant_error(filename,this)<< "Predicate is not of type Bool" << endl;
+   }
+
+   set_type(join_types(then_exp->get_type(),else_exp->get_type()));
 }
 
 //
 // loop_class::dump_with_types dumps the predicate and then the
 // body of the loop, and finally the type of the entire expression.
 //
-void loop_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_loop\n";
+void loop_class::semant_checker(){
+
    pred->semant_checker();
    body->semant_checker();
-   set_type(stream,n);
+
+   if (pred->get_type != Bool){
+      semant_error(filename,this)<< "Predicate is not of type Bool" << endl;
+   }
+   set_type(Object);
 }
 
 //
@@ -219,14 +233,20 @@ void loop_class::semant_checker()
 //  the Case_ one at a time.  The type of the entire expression
 //  is dumped at the end.
 //
-void typcase_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_typcase\n";
+void typcase_class::semant_checker(){
+   Symbol expr_type, case_type;
    expr->semant_checker();
+
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->semant_checker();
-   set_type(stream,n);
+
+   case_type = cases->nth(cases->first());
+   for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+      expr_type = cases->nth(i)->expr->get_type();
+      case_type = join_types(case_type, expr_type);
+   }
+     
+   set_type(case_type);
 }
 
 //
@@ -234,17 +254,21 @@ void typcase_class::semant_checker()
 //  and introduce nothing that isn't already in the code discussed
 //  above.
 //
-void block_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_block\n";
-   for(int i = body->first(); body->more(i); i = body->next(i))
+void block_class::semant_checker(){
+   Symbol expr_type;
+
+   expr_type = No_type;
+
+   for(int i = body->first(); body->more(i); i = body->next(i)){
      body->nth(i)->semant_checker();
-   set_type(stream,n);
+     expr_type = body->nth(i)->get_type();
+   }
+   set_type(expr_type);
 }
 
-void let_class::semant_checker()
-{
+
+//TODO
+void let_class::semant_checker(){
    dump_line(stream,n,this);
    stream << pad(n) << "_let\n";
    dump_Symbol(stream, n+2, identifier);
@@ -254,140 +278,161 @@ void let_class::semant_checker()
    set_type(stream,n);
 }
 
-void plus_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_plus\n";
+void plus_class::semant_checker(){
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Int);
 }
 
-void sub_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_sub\n";
+void sub_class::semant_checker(){
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Int);
 }
 
-void mul_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_mul\n";
+void mul_class::semant_checker(){
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Int);
 }
 
-void divide_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_divide\n";
+void divide_class::semant_checker(){
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Int);
 }
 
-void neg_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_neg\n";
+void neg_class::semant_checker(){
+
    e1->semant_checker();
-   set_type(stream,n);
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "Expression is not of type Int"<<endl;
+   }
+   
+   set_type(Int);
 }
 
-void lt_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_lt\n";
-   e1->semant_checker();
-   e2->semant_checker();
-   set_type(stream,n);
-}
-
-
-void eq_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_eq\n";
+void lt_class::semant_checker(){
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Bool);
 }
 
-void leq_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_leq\n";
+//TODO
+void eq_class::semant_checker(){
+   Symbol e1_type, e2_type;
    e1->semant_checker();
    e2->semant_checker();
-   set_type(stream,n);
+
+   e1_type = e1->get_type();
+   e2_type = e2->get_type();
+
+
+   if((e1_type == Int) || (e1_type == Str) || (e1_type == Bool)){
+      if (e1_type != e2_type){
+         semant_error(filename,this)<< "Primitive types should only be compared with object of the same type"<<endl;
+      }
+   }
+   else{
+      if((e2_type == Int) || (e2_type == Str) || (e2_type == Bool)){
+         semant_error(filename,this)<< "Primitive types should only be compared with object of the same type"<<endl;
+      }
+   }
+
+   set_type(Bool);
+}
+
+void leq_class::semant_checker(){
+   e1->semant_checker();
+   e2->semant_checker();
+
+   if(e1->get_type() != Int){
+      semant_error(filename,this)<< "First expression is not of type Int"<<endl;
+   }
+   if(e2->get_type() != Int){
+      semant_error(filename,this)<< "Second expression is not of type Int"<<endl;
+   }
+   set_type(Bool);
 }
 
 void comp_class::semant_checker()
 {
-   dump_line(stream,n,this);
-   stream << pad(n) << "_comp\n";
+   
    e1->semant_checker();
-   set_type(stream,n);
+   if(e1->get_type() != Bool){
+      semant_error(filename,this)<< "Expression is not of type Bool"<<endl;
+   }
+   set_type(Bool);
 }
 
-void int_const_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_int\n";
-   dump_Symbol(stream, n+2, token);
-   set_type(stream,n);
+void int_const_class::semant_checker(){
+   set_type(Int);
 }
 
-void bool_const_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_bool\n";
-   dump_Boolean(stream, n+2, val);
-   set_type(stream,n);
+void bool_const_class::semant_checker(){
+   set_type(Bool);
 }
 
-void string_const_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_string\n";
-   stream << pad(n+2) << "\"";
-   print_escaped_string(stream,token->get_string());
-   stream << "\"\n";
-   set_type(stream,n);
+void string_const_class::semant_checker(){
+   set_type(Str);
 }
 
-void new__class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_new\n";
-   dump_Symbol(stream, n+2, type_name);
-   set_type(stream,n);
+
+//TODO
+void new__class::semant_checker(){
+   Symbol type = get_type_name();
+   if (type == SELF_TYPE){
+      set_type(/**/);   
+   }
+   else{
+      set_type(type);
+   }
 }
 
-void isvoid_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_isvoid\n";
-   e1->semant_checker();
-   set_type(stream,n);
+void isvoid_class::semant_checker(){
+   set_type(Bool);
 }
 
-void no_expr_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_no_expr\n";
-   set_type(stream,n);
+void no_expr_class::semant_checker(){
+   set_type(No_type);
 }
 
-void object_class::semant_checker()
-{
-   dump_line(stream,n,this);
-   stream << pad(n) << "_object\n";
-   dump_Symbol(stream, n+2, name);
-   set_type(stream,n);
+void object_class::semant_checker(){
+   set_type(Object);
 }
 
