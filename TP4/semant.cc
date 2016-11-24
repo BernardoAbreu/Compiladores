@@ -117,7 +117,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     }
 
 
-    if (main_class == false){
+    if (!main_class){
         semant_error() << "Missing definition of Main class." << endl;
     }
 
