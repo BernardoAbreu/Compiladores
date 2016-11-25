@@ -43,9 +43,6 @@ public:
    virtual Features get_features() = 0;
 
    virtual void semant_checker(Symbol) = 0;
-   
-   virtual void build_features() = 0;
-   virtual void remove_features() = 0;
 
 #ifdef Class__EXTRAS
    Class__EXTRAS
@@ -180,9 +177,6 @@ protected:
    Features features;
    Symbol filename;
 
-   void build_features();
-
-   void remove_features();
 
 public:
    class__class(Symbol a1, Symbol a2, Features a3, Symbol a4) {
