@@ -88,7 +88,6 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     /* Fill this in */
     bool main_class = false;
     
-    Class_ c;
     class_map = new std::map<Symbol, Class_>();
 
     install_basic_classes();
@@ -111,27 +110,21 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
         else{
             class_map->insert(std::make_pair(cur_name, cur_class));
         }
-
-
-
     }
 
 
     if (!main_class){
         semant_error() << "Missing definition of Main class." << endl;
     }
-
-
 }
 
 
 
-bool ClassTable::isCyclicUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index){
+bool ClassTable::inheritanceUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index){
 
     int v = (*index)[vertex];
 
-    if(visited[v] == false)
-    {
+    if(visited[v] == false){
         // Mark the current node as visited and part of recursion stack
         visited[v] = true;
         recStack[v] = true;
@@ -154,7 +147,7 @@ bool ClassTable::isCyclicUtil(Symbol vertex, bool visited[], bool *recStack,std:
                 else{
                     // Recur for parent
                     int p = (*index)[parent];
-                    if ( !visited[p] && isCyclicUtil(parent, visited, recStack,index) )
+                    if ( !visited[p] && inheritanceUtil(parent, visited, recStack,index) )
                         return true;
                     else if (recStack[p])
                         return true;
@@ -196,7 +189,7 @@ bool ClassTable::inheritanceCheck(){
 
  
     for (std::map<Symbol, Class_>::iterator it=class_map->begin(); it!=class_map->end(); ++it)
-        if (isCyclicUtil(it->first, visited, recStack,&index)){
+        if (inheritanceUtil(it->first, visited, recStack,&index)){
             semant_error()<<"Cyclic inheritance"<<endl;
             return true;
         }
@@ -313,13 +306,8 @@ void ClassTable::install_basic_classes() {
     class_map->insert(std::make_pair(Bool, Bool_class));
     class_map->insert(std::make_pair(Str, Str_class));
 
-    // class_map[Object] = Object_class;
-    // class_map[IO] = IO_class;
-    // class_map[Int] = Int_class;
-    // class_map[Bool] = Bool_class;
-    // class_map[Str] = Str_class;
-
 }
+
 
 Class_ ClassTable::get_Class(Symbol c){
     std::map<Symbol, Class_>::iterator it;
