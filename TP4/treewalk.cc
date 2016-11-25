@@ -18,25 +18,10 @@ CHECK METHOD OR ATTRIBUTE EXISTENCE FOR ALL
 **********************************************/
 
 
-// defined in stringtab.cc
-void dump_Symbol(ostream& stream, int padding, Symbol b); 
-
-// defined in cool.h
-void dump_Boolean(ostream& stream, int padding, Boolean b);
-
-
-void Expression_class::set_type(ostream& stream, int n)
-{
-  if (type)
-    { stream << pad(n) << ": " << type << endl; }
-  else
-    { stream << pad(n) << ": _no_type" << endl; }
+//type1 <= type2
+bool type_check(Symbol type1, Symbol type2){
 }
 
-void dump_line(ostream& stream, int n, tree_node *t)
-{
-  stream << pad(n) << "#" << t->get_line_number() << "\n";
-}
 
 //
 //  program_class prints "program" and then each of the
@@ -88,29 +73,33 @@ void method_class::semant_checker(){
    for(int i = formals->first(); formals->more(i); i = formals->next(i))
       formals->nth(i)->semant_checker();
 
+   attribute_map->addid(self,/**Class**/);
    expr->semant_checker();
 
    expr_type = expr->get_type();
-   ret_type = get_return_type();
 
-   type_check(ret_type,expr_type);
+   if(get_return_type() == SELF_TYPE){
+      ret_type = cur_class;   
+   }
+   else{
+      ret_type = get_return_type();
+   }
+   
+
+   type_check(expr_type, ret_type);
    attribute_map->exitscope();
 }
 
-//TODO
+//
 //  attr_class::dump_with_types prints the attribute name, type declaration,
 //  and any initialization expression at the appropriate offset.
 //
 void attr_class::semant_checker(){
-   Symbol init_type, type;
-
-   init->semant_checker();
-
-   init_type = init->get_type();
-
-   type = get_type_decl();
-
-   type_check(type,init_type);
+   if(!init->isNoExpr()){
+      init->semant_checker();
+      type_check(init->get_type(), get_type_decl());
+   }
+   
 }
 
 //
@@ -150,7 +139,7 @@ void assign_class::semant_checker(){
    expr_type = expr->get_type();
    var_type = attribute_map->lookup(name);
    if (var_type != NULL){
-      finaltype = ((type_check(var_type, expr_type)) ? expr_type : Object);
+      finaltype = ((type_check(expr_type, var_type)) ? expr_type : Object);
    }
    else{
       semant_error(get_filename(),this) << "Variable " << name << " not declared" << endl;
@@ -222,7 +211,7 @@ void loop_class::semant_checker(){
    pred->semant_checker();
    body->semant_checker();
 
-   if (pred->get_type != Bool){
+   if (pred->get_type() != Bool){
       semant_error(filename,this)<< "Predicate is not of type Bool" << endl;
    }
    set_type(Object);
@@ -237,14 +226,18 @@ void typcase_class::semant_checker(){
    Symbol expr_type, case_type;
    expr->semant_checker();
 
+   attribute_map->enterscope();
+
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->semant_checker();
 
-   case_type = cases->nth(cases->first());
+   case_type = cases->nth(cases->first())->expr->get_type();
    for(int i = cases->first(); cases->more(i); i = cases->next(i)){
       expr_type = cases->nth(i)->expr->get_type();
       case_type = join_types(case_type, expr_type);
    }
+
+   attribute_map->exitscope();
      
    set_type(case_type);
 }
@@ -269,13 +262,31 @@ void block_class::semant_checker(){
 
 //TODO
 void let_class::semant_checker(){
-   dump_line(stream,n,this);
-   stream << pad(n) << "_let\n";
-   dump_Symbol(stream, n+2, identifier);
-   dump_Symbol(stream, n+2, type_decl);
-   init->semant_checker();
+   Symbol let_type;
+
+   if(!init->isNoExpr()){
+      init->semant_checker();
+   }
+
+   if(type_decl == SELF_TYPE){
+      let_type =  /*Class Type*/;
+   }
+   else{
+      let_type = type_decl;
+   }
+
+   if(!init->isNoExpr()){
+      type_check(init->get_type(),let_type);
+   }
+
+   attribute_map->enterscope();
+   attribute_map->addid(identifier,type_decl);
+   
    body->semant_checker();
-   set_type(stream,n);
+
+   set_type(body->get_type());
+
+   attribute_map->exitscope();
 }
 
 void plus_class::semant_checker(){
@@ -353,7 +364,7 @@ void lt_class::semant_checker(){
    set_type(Bool);
 }
 
-//TODO
+
 void eq_class::semant_checker(){
    Symbol e1_type, e2_type;
    e1->semant_checker();

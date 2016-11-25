@@ -22,6 +22,8 @@ public:
    tree_node *copy()     { return copy_Program(); }
    virtual Program copy_Program() = 0;
 
+   virtual void semant_checker(Symbol) = 0;
+
 #ifdef Program_EXTRAS
    Program_EXTRAS
 #endif
@@ -40,6 +42,11 @@ public:
    virtual Symbol get_parent() = 0;
    virtual Features get_features() = 0;
 
+   virtual void semant_checker(Symbol) = 0;
+   
+   virtual void build_features() = 0;
+   virtual void remove_features() = 0;
+
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -53,6 +60,8 @@ class Feature_class : public tree_node {
 public:
    tree_node *copy()     { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
+
+   virtual void semant_checker(Symbol) = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -71,6 +80,8 @@ public:
    virtual Symbol get_name() = 0;
    virtual Symbol get_type_decl() = 0;
 
+   virtual void semant_checker(Symbol) = 0;
+
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
 #endif
@@ -85,6 +96,10 @@ public:
    tree_node *copy()     { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
 
+   virtual void semant_checker(Symbol) = 0;
+
+   bool isNoExpr()       { return false; }
+
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
 #endif
@@ -98,6 +113,9 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()     { return copy_Case(); }
    virtual Case copy_Case() = 0;
+
+   virtual void semant_checker(Symbol) = 0;
+   virtual Expression get_expr() = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -143,6 +161,8 @@ public:
    Program copy_Program();
    void dump(ostream& stream, int n);
 
+   void semant_checker(Symbol);
+
 #ifdef Program_SHARED_EXTRAS
    Program_SHARED_EXTRAS
 #endif
@@ -159,6 +179,11 @@ protected:
    Symbol parent;
    Features features;
    Symbol filename;
+
+   void build_features();
+
+   void remove_features();
+
 public:
    class__class(Symbol a1, Symbol a2, Features a3, Symbol a4) {
       name = a1;
@@ -172,6 +197,8 @@ public:
    Symbol get_name() { return name; }
    Symbol get_parent() { return parent; }
    Features get_features() { return features; }
+
+   void semant_checker(Symbol);
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
@@ -204,6 +231,8 @@ public:
    Symbol get_return_type() { return return_type; }
    Expression get_expr() { return expr; }
 
+   void semant_checker(Symbol);
+
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
 #endif
@@ -232,6 +261,8 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_init() { return init; }
 
+   void semant_checker(Symbol);
+
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
 #endif
@@ -256,6 +287,8 @@ public:
 
    Symbol get_name() { return name; }
    Symbol get_type_decl() { return type_decl; }
+
+   void semant_checker(Symbol);
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS
@@ -285,6 +318,8 @@ public:
    Symbol get_type_decl() { return type_decl; }
    Expression get_expr() { return expr; }
 
+   void semant_checker(Symbol);
+
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
 #endif
@@ -309,6 +344,8 @@ public:
 
    Symbol get_name() { return name; }
    Expression get_expr() { return expr; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -341,6 +378,8 @@ public:
    Symbol get_name() { return name; }
    Expressions get_actual() { return actual; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -368,6 +407,8 @@ public:
    Expression get_expr() { return expr; }
    Symbol get_name() { return name; }
    Expressions get_actual() { return actual; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -397,6 +438,8 @@ public:
    Expression get_then_exp() { return then_exp; }
    Expression get_else_exp() { return else_exp; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -421,6 +464,8 @@ public:
 
    Expression get_pred() { return pred; }
    Expression get_body() { return body; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -447,6 +492,8 @@ public:
    Expression get_expr() { return expr; }
    Cases get_cases() { return cases; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -468,6 +515,8 @@ public:
    void dump(ostream& stream, int n);
 
    Expressions get_body() { return body; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -500,6 +549,8 @@ public:
    Expression get_init() { return init; }
    Expression get_body() { return body; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -524,6 +575,8 @@ public:
 
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -550,6 +603,8 @@ public:
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -574,6 +629,8 @@ public:
 
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -600,6 +657,8 @@ public:
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -621,6 +680,8 @@ public:
    void dump(ostream& stream, int n);
 
    Expression get_e1() { return e1; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -647,6 +708,8 @@ public:
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -671,6 +734,8 @@ public:
 
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -697,6 +762,8 @@ public:
    Expression get_e1() { return e1; }
    Expression get_e2() { return e2; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -718,6 +785,8 @@ public:
    void dump(ostream& stream, int n);
 
    Expression get_e1() { return e1; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -741,6 +810,8 @@ public:
 
    Symbol get_token() { return token; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -762,6 +833,8 @@ public:
    void dump(ostream& stream, int n);
 
    Boolean get_val() { return val; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -785,6 +858,8 @@ public:
 
    Symbol get_token() { return token; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -806,6 +881,8 @@ public:
    void dump(ostream& stream, int n);
 
    Symbol get_type_name() { return type_name; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -829,6 +906,8 @@ public:
 
    Expression get_e1() { return e1; }
 
+   void semant_checker(Symbol);
+
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
 #endif
@@ -846,6 +925,10 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+
+   bool isNoExpr()   { return true; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -868,6 +951,8 @@ public:
    void dump(ostream& stream, int n);
 
    Symbol get_name() { return name; }
+
+   void semant_checker(Symbol);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS

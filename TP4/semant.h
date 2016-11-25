@@ -32,10 +32,6 @@ private:
 
   std::map<Symbol, Class_> *class_map;
 
-  SymbolTable<Symbol, Symbol> *method_map;
-  SymbolTable<Symbol, Symbol> *attribute_map;
-  
-
   bool isCyclicUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
 
 
@@ -47,9 +43,15 @@ public:
   ostream& semant_error(Class_ c);
   ostream& semant_error(Symbol filename, tree_node *t);
 
-  bool inheritanceCycle();
+  Class_ get_Class(Symbol c);
+  bool inheritanceCheck();
 };
 
+SymbolTable<Symbol, Symbol> *method_map;
+SymbolTable<Symbol, Symbol> *attribute_map;
+
+
+ClassTableP classtable;
 
 #endif
 
