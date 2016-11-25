@@ -358,19 +358,44 @@ ostream& ClassTable::semant_error()
 
 //type1 <= type2
 bool type_check(Symbol type1, Symbol type2){
-    return true;
+
+    Symbol class_name = type1;
+
+    while(class_name != Object){
+      if(class_name == type2){
+        return true;
+      }
+      else{
+          class_name = (classtable->get_Class(class_name))->get_parent();
+      }
+    }
+    return false;
 }
 
 Symbol join_types(Symbol type1, Symbol type2){
+
+    Symbol class_name = type1;
+
+    if(type1 == Object || type2 == Object) return Object;
+
+    while(class_name != Object){
+      if(type_check(type2,class_name))
+        return class_name;
+      else
+        class_name = (classtable->get_Class(class_name))->get_parent();
+    }
+
     return Object;
 }
 
-void build_features(){
+
+void build_features(Symbol c){
     method_map = new SymbolTable<Symbol, Symbol>();
     attribute_map = new SymbolTable<Symbol, Symbol>();
 
-    attribute_map->enterscope();
-    method_map->enterscope();
+    build_methods(c);
+
+    build_attributes(c);
 }
 
 void remove_features(){
@@ -394,23 +419,23 @@ void remove_features(){
 //  classes.  The methods first, more, next, and nth on AST lists
 //  are defined in tree.h.
 //
-void program_class::semant_checker(Symbol cur_class){
+void program_class::semant_checker(){
 
    for(int i = classes->first(); classes->more(i); i = classes->next(i))
-      classes->nth(i)->semant_checker(cur_class);
+      classes->nth(i)->semant_checker();
 }
 
 //
 // Prints the components of a class, including all of the features.
 // Note that printing the Features is another use of an iterator.
 //
-void class__class::semant_checker(Symbol cur_class){
+void class__class::semant_checker(){
 
    //Create tables and check for method and attribute definition errors
-   build_features();
+   build_features(get_name());
 
    for(int i = features->first(); features->more(i); i = features->next(i))
-      features->nth(i)->semant_checker(cur_class);
+      features->nth(i)->semant_checker(get_name());
 
    remove_features();
 
@@ -650,32 +675,26 @@ void let_class::semant_checker(Symbol cur_class){
 }
 
 void plus_class::semant_checker(Symbol cur_class){
-   e1->semant_checker(cur_class);
-   e2->semant_checker(cur_class);
+    e1->semant_checker(cur_class);
+    e2->semant_checker(cur_class);
 
-   if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
-   }
-   if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
-   }
-   set_type(Int);
+        << "An expression is not of type Int"<<endl;
+    }
+    
+    set_type(Int);
 }
 
 void sub_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     e2->semant_checker(cur_class);
 
-    if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
+        << "An expression is not of type Int"<<endl;
     }
-    if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
-    }
+
     set_type(Int);
 }
 
@@ -683,14 +702,11 @@ void mul_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     e2->semant_checker(cur_class);
 
-    if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
+        << "An expression is not of type Int"<<endl;
     }
-    if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
-    }
+    
     set_type(Int);
 }
 
@@ -698,14 +714,11 @@ void divide_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     e2->semant_checker(cur_class);
 
-    if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
+        << "An expression is not of type Int"<<endl;
     }
-    if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
-    }
+    
     set_type(Int);
 }
 
@@ -819,7 +832,16 @@ void no_expr_class::semant_checker(Symbol cur_class){
 }
 
 void object_class::semant_checker(Symbol cur_class){
-    set_type(Object);
+    Symbol *var_type;
+    var_type = map->lookup(name);
+    if(var_type != NULL){
+      set_type(*var_type);
+    }
+    else{
+      classtable->semant_error(cur_class->get_filename(),this)<<"Object "
+        << name << " is not defined" << endl;
+    }
+    
 }
 
 

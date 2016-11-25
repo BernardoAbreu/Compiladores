@@ -32,7 +32,7 @@ private:
 
   std::map<Symbol, Class_> *class_map;
 
-  bool isCyclicUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
+  bool inheritanceUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
 
 
 

@@ -22,7 +22,7 @@ public:
    tree_node *copy()     { return copy_Program(); }
    virtual Program copy_Program() = 0;
 
-   virtual void semant_checker(Symbol) = 0;
+   virtual void semant_checker() = 0;
 
 #ifdef Program_EXTRAS
    Program_EXTRAS
@@ -42,7 +42,7 @@ public:
    virtual Symbol get_parent() = 0;
    virtual Features get_features() = 0;
 
-   virtual void semant_checker(Symbol) = 0;
+   virtual void semant_checker() = 0;
 
 #ifdef Class__EXTRAS
    Class__EXTRAS
@@ -158,7 +158,7 @@ public:
    Program copy_Program();
    void dump(ostream& stream, int n);
 
-   void semant_checker(Symbol);
+   void semant_checker();
 
 #ifdef Program_SHARED_EXTRAS
    Program_SHARED_EXTRAS
@@ -192,7 +192,7 @@ public:
    Symbol get_parent() { return parent; }
    Features get_features() { return features; }
 
-   void semant_checker(Symbol);
+   void semant_checker();
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
