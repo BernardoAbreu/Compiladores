@@ -388,14 +388,68 @@ Symbol join_types(Symbol type1, Symbol type2){
     return Object;
 }
 
+bool method_class::is_Main_meth(){
+  return get_name() == main_meth;
+}
+
+void method_class::add_feature(Symbol c){
+    Symbol name = get_name();
+
+    if (method_map->probe(name) != NULL){
+      classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
+        << "Redefinition of method " << name << endl;
+    }
+    else{
+      method_map->addid(name, new Symbol(get_type()));
+    }
+}
+
+void attr_class::add_feature(Symbol c){
+    Symbol name = get_name();
+
+    if (method_map->lookup(name) != NULL){
+      classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
+        << "Redefinition of attribute " << name << endl;
+    }
+    else{
+      attribute_map->addid(name, new Symbol(get_type()));
+    }
+}
+
+void build_feat(Symbol c){
+  if(c == No_class) return;
+
+  bool is_Main = false;
+
+  Class_ cur_class = classtable->get_Class(c);
+
+  build_feat(cur_class->get_parent());
+
+  method_map->enterscope();
+
+  for(int i = cur_class->get_features()->first(); cur_class->get_features()->more(i); i = cur_class->get_features()->next(i)){
+      cur_class->get_features()->nth(i)->add_feature(c);
+      if(c == Main){
+        is_Main |= cur_class->get_features()->nth(i)->is_Main_meth();
+      }
+  }
+
+  if((c == Main) && !is_Main){
+    classtable->semant_error(cur_class)<< "Missing method main" << endl;
+  }
+
+}
+
 
 void build_features(Symbol c){
     method_map = new SymbolTable<Symbol, Symbol>();
     attribute_map = new SymbolTable<Symbol, Symbol>();
 
-    build_methods(c);
+    attribute_map->enterscope();
+    build_feat(c);
 
-    build_attributes(c);
+    attribute_map->addid(self, new Symbol(c));
+
 }
 
 void remove_features(){
@@ -457,16 +511,16 @@ void method_class::semant_checker(Symbol cur_class){
         formals->nth(i)->semant_checker(cur_class);
 
     attribute_map->enterscope();
-    attribute_map->addid(self, new Symbol(cur_class));
+
     expr->semant_checker(cur_class);
 
     expr_type = expr->get_type();
 
-    if(get_return_type() == SELF_TYPE){
+    if(get_type() == SELF_TYPE){
         ret_type = cur_class;   
     }
     else{
-        ret_type = get_return_type();
+        ret_type = get_type();
     }
 
 
@@ -480,8 +534,9 @@ void method_class::semant_checker(Symbol cur_class){
 //
 void attr_class::semant_checker(Symbol cur_class){
    if(!init->isNoExpr()){
+
       init->semant_checker(cur_class);
-      type_check(init->get_type(), get_type_decl());
+      type_check(init->get_type(), get_type());
    }
    
 }
@@ -654,7 +709,7 @@ void let_class::semant_checker(Symbol cur_class){
     }
 
     if(type_decl == SELF_TYPE){
-      let_type =  cur_class;
+      let_type = cur_class;
     }
     else{
       let_type = type_decl;
@@ -833,13 +888,13 @@ void no_expr_class::semant_checker(Symbol cur_class){
 
 void object_class::semant_checker(Symbol cur_class){
     Symbol *var_type;
-    var_type = map->lookup(name);
+    var_type = attribute_map->lookup(name);
     if(var_type != NULL){
       set_type(*var_type);
     }
     else{
-      classtable->semant_error(cur_class->get_filename(),this)<<"Object "
-        << name << " is not defined" << endl;
+      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+        << "Object " << name << " is not defined" << endl;
     }
     
 }
@@ -873,6 +928,7 @@ void program_class::semant()
     /* ClassTable constructor may do some semantic analysis */
     classtable = new ClassTable(classes);
 
+
     /* some semantic analysis code may go here */
     if(!classtable->inheritanceCheck()){
         //TODO
@@ -881,6 +937,7 @@ void program_class::semant()
         //TODO
         //SetTypes
     }
+
 
     if (classtable->errors()) {
         cerr << "Compilation halted due to static semantic errors." << endl;

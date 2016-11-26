@@ -59,6 +59,8 @@ public:
    virtual Feature copy_Feature() = 0;
 
    virtual void semant_checker(Symbol) = 0;
+   virtual void add_feature(Symbol) = 0;
+   virtual bool is_Main_meth() = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -222,10 +224,14 @@ public:
 
    Symbol get_name() { return name; }
    Formals get_formals() { return formals; }
-   Symbol get_return_type() { return return_type; }
+   Symbol get_type() { return return_type; }
    Expression get_expr() { return expr; }
 
    void semant_checker(Symbol);
+
+   void add_feature(Symbol);
+
+   bool is_Main_meth();
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -252,10 +258,13 @@ public:
    void dump(ostream& stream, int n);
  
    Symbol get_name() { return name; }
-   Symbol get_type_decl() { return type_decl; }
+   Symbol get_type() { return type_decl; }
    Expression get_init() { return init; }
 
    void semant_checker(Symbol);
+   void add_feature(Symbol);
+
+   bool is_Main_meth()  { return false; }
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
