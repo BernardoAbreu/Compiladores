@@ -97,7 +97,6 @@ public:
 
    virtual void semant_checker(Symbol) = 0;
 
-   bool isNoExpr()       { return false; }
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -928,8 +927,6 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-
-   bool isNoExpr()   { return true; }
 
    void semant_checker(Symbol);
 

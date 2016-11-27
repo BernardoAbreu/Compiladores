@@ -105,7 +105,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
 
         // Check for class redefinition
         if ( class_map->find(cur_name) != class_map->end()){
-            semant_error(cur_class) << "Redefinition of class " << cur_name << endl;
+            semant_error(cur_class) << "Class " << cur_name 
+            << "was previously defined." << endl;
         }
         else{
             class_map->insert(std::make_pair(cur_name, cur_class));
@@ -114,7 +115,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
 
 
     if (!main_class){
-        semant_error() << "Missing definition of Main class." << endl;
+        semant_error() << "Class Main is not defined." << endl;
     }
 }
 
@@ -135,14 +136,15 @@ bool ClassTable::inheritanceUtil(Symbol vertex, bool visited[], bool *recStack, 
         //Check Parent
         if(parent != No_class){
             if ((parent == Int) || (parent == Str) || (parent == Bool)){
-                semant_error(c) << "Invalid inheritance" << endl;
+                semant_error(c) << "Invalid inheritance from basic class." << endl;
             }
             else{
 
                 std::map<Symbol, Class_>::iterator it;
                 it = class_map->find(parent);
                 if (it == class_map->end()){
-                    semant_error(c) << "Trying to inherit from inexistant class " << parent << endl;
+                    semant_error(c) << "Class " << vertex
+                    << " inherits from an undefined class " << parent << "." << endl;
                 }
                 else{
                     // Recur for parent
@@ -190,7 +192,8 @@ bool ClassTable::inheritanceCheck(){
  
     for (std::map<Symbol, Class_>::iterator it=class_map->begin(); it!=class_map->end(); ++it)
         if (inheritanceUtil(it->first, visited, recStack,&index)){
-            semant_error(it->second)<<"Cyclic inheritance"<<endl;
+            semant_error(it->second)<< "Class "
+              << it->first << " is involved in an inheritance cycle." << endl;
             return true;
         }
  
@@ -397,7 +400,7 @@ void method_class::add_feature(Symbol c){
 
     if (method_map->probe(name) != NULL){
       classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
-        << "Redefinition of method " << name << endl;
+        << "Method " << name << " is multiply defined." << endl;
     }
     else{
       method_map->addid(name, new Symbol(get_type()));
@@ -407,9 +410,19 @@ void method_class::add_feature(Symbol c){
 void attr_class::add_feature(Symbol c){
     Symbol name = get_name();
 
-    if (method_map->lookup(name) != NULL){
-      classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
-        << "Redefinition of attribute " << name << endl;
+
+    if (attribute_map->lookup(name) != NULL){
+      if(attribute_map->probe(name) != NULL){
+        classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
+          << "Attribute " << name
+          << " is multiply defined in class " << c << "." << endl;
+      }
+      else{
+        classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
+          << "Attribute " << name << " of class " << c 
+          << " is an attribute of an inherited class." << endl;
+      }
+
     }
     else{
       attribute_map->addid(name, new Symbol(get_type()));
@@ -426,6 +439,7 @@ void build_feat(Symbol c){
   build_feat(cur_class->get_parent());
 
   method_map->enterscope();
+  attribute_map->enterscope();
 
   for(int i = cur_class->get_features()->first(); cur_class->get_features()->more(i); i = cur_class->get_features()->next(i)){
       cur_class->get_features()->nth(i)->add_feature(c);
@@ -435,7 +449,7 @@ void build_feat(Symbol c){
   }
 
   if((c == Main) && !is_Main){
-    classtable->semant_error(cur_class)<< "Missing method main" << endl;
+    classtable->semant_error(cur_class)<< "Missing method main." << endl;
   }
 
 }
@@ -445,7 +459,6 @@ void build_features(Symbol c){
     method_map = new SymbolTable<Symbol, Symbol>();
     attribute_map = new SymbolTable<Symbol, Symbol>();
 
-    attribute_map->enterscope();
     build_feat(c);
 
     attribute_map->addid(self, new Symbol(c));
@@ -488,6 +501,7 @@ void class__class::semant_checker(){
    //Create tables and check for method and attribute definition errors
    build_features(get_name());
 
+
    for(int i = features->first(); features->more(i); i = features->next(i))
       features->nth(i)->semant_checker(get_name());
 
@@ -523,8 +537,11 @@ void method_class::semant_checker(Symbol cur_class){
         ret_type = get_type();
     }
 
-
-    type_check(expr_type, ret_type);
+    if (!type_check(expr_type, ret_type)){
+      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+        << "Inferred return type "<< expr_type << " of method " << get_name()
+        << " does not conform to declared return type " << ret_type << "." << endl;
+    }
     attribute_map->exitscope();
 }
 
@@ -533,12 +550,15 @@ void method_class::semant_checker(Symbol cur_class){
 //  and any initialization expression at the appropriate offset.
 //
 void attr_class::semant_checker(Symbol cur_class){
-   if(!init->isNoExpr()){
-
-      init->semant_checker(cur_class);
-      type_check(init->get_type(), get_type());
-   }
-   
+    init->semant_checker(cur_class);
+    if(init->get_type() != No_type){
+        if (!type_check(init->get_type(), get_type())){
+          classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+            << "Inferred type "<< init->get_type()
+            << " of initialization of attribute " << get_name()
+            << " does not conform to declared type " << get_type() << "." << endl;
+        }
+    }
 }
 
 //
@@ -554,13 +574,14 @@ void formal_class::semant_checker(Symbol cur_class){
 // and body of any case branch.
 //
 void branch_class::semant_checker(Symbol cur_class){
+
    if(attribute_map->probe(type_decl) != NULL){
-      attribute_map->addid(type_decl, new Symbol(name));
+      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
+        << "Duplicate branch " << type_decl
+        << " in case statement." << endl;
    }
    else{
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
-        << "Variable with type " << type_decl
-        << " already declared on Case" << endl;
+      attribute_map->addid(type_decl, new Symbol(name));
    }
    
    expr->semant_checker(cur_class);
@@ -573,20 +594,31 @@ void branch_class::semant_checker(Symbol cur_class){
 // end of the method.
 //
 void assign_class::semant_checker(Symbol cur_class){
-    Symbol expr_type, var_type, finaltype;
-
+    Symbol expr_type, finaltype;
+    Symbol *var_type;
+    
     expr->semant_checker(cur_class);
     expr_type = expr->get_type();
-    var_type = *(attribute_map->lookup(name));
+    var_type = (attribute_map->lookup(name));
     if (var_type != NULL){
-      finaltype = ((type_check(expr_type, var_type)) ? expr_type : Object);
+      if (type_check(expr_type, *var_type)){
+        finaltype = expr_type;
+      }
+      else{
+        classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+          << "Type " << expr_type 
+          << " of assigned expression does not conform to declared type "
+          << *var_type << " of identifier " << name << "." << endl;
+        finaltype = Object;
+      }
     }
     else{
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Variable " << name << " not declared" << endl;
+        << "Assignment to undeclared variable " << name << "." << endl;
 
       finaltype = Object;
     }
+
 
     set_type(finaltype);
 }
@@ -630,7 +662,7 @@ void cond_class::semant_checker(Symbol cur_class){
 
     if (pred->get_type() != Bool){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Predicate is not of type Bool" << endl;
+        << "If condition does not have type Bool." << endl;
     }
 
     set_type(join_types(then_exp->get_type(),else_exp->get_type()));
@@ -647,7 +679,7 @@ void loop_class::semant_checker(Symbol cur_class){
 
     if (pred->get_type() != Bool){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Predicate is not of type Bool" << endl;
+        << "Loop condition does not have type Bool." << endl;
     }
     set_type(Object);
 }
@@ -704,9 +736,7 @@ void block_class::semant_checker(Symbol cur_class){
 void let_class::semant_checker(Symbol cur_class){
     Symbol let_type;
 
-    if(!init->isNoExpr()){
-      init->semant_checker(cur_class);
-    }
+    init->semant_checker(cur_class);
 
     if(type_decl == SELF_TYPE){
       let_type = cur_class;
@@ -714,9 +744,12 @@ void let_class::semant_checker(Symbol cur_class){
     else{
       let_type = type_decl;
     }
-
-    if(!init->isNoExpr()){
-      type_check(init->get_type(),let_type);
+    //TODO
+    if(init->get_type() != No_type){
+      if (!type_check(init->get_type(),let_type)){
+        classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+          << "." << endl;
+      }
     }
 
     attribute_map->enterscope();
@@ -735,7 +768,7 @@ void plus_class::semant_checker(Symbol cur_class){
 
     if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "An expression is not of type Int"<<endl;
+        << "non-Int arguments on arithmetic expression." << endl;
     }
     
     set_type(Int);
@@ -747,7 +780,7 @@ void sub_class::semant_checker(Symbol cur_class){
 
     if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "An expression is not of type Int"<<endl;
+        << "non-Int arguments on arithmetic expression." << endl;
     }
 
     set_type(Int);
@@ -759,7 +792,7 @@ void mul_class::semant_checker(Symbol cur_class){
 
     if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "An expression is not of type Int"<<endl;
+        << "non-Int arguments on arithmetic expression." << endl;
     }
     
     set_type(Int);
@@ -771,7 +804,7 @@ void divide_class::semant_checker(Symbol cur_class){
 
     if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "An expression is not of type Int"<<endl;
+        << "non-Int arguments on arithmetic expression." << endl;
     }
     
     set_type(Int);
@@ -782,7 +815,8 @@ void neg_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     if(e1->get_type() != Int){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Expression is not of type Int"<<endl;
+        << "Argument of '~' has type "
+        << e1->get_type() << " instead of Int." << endl;
     }
 
     set_type(Int);
@@ -792,14 +826,11 @@ void lt_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     e2->semant_checker(cur_class);
 
-    if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
+        << "non-Int arguments on '<' expression." << endl;
     }
-    if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
-    }
+
     set_type(Bool);
 }
 
@@ -816,13 +847,13 @@ void eq_class::semant_checker(Symbol cur_class){
     if((e1_type == Int) || (e1_type == Str) || (e1_type == Bool)){
       if (e1_type != e2_type){
           classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-            << "Primitive types should only be compared with object of the same type"<<endl;
+            << "Illegal comparison with a basic type." << endl;
       }
     }
     else{
       if((e2_type == Int) || (e2_type == Str) || (e2_type == Bool)){
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-          << "Primitive types should only be compared with object of the same type"<<endl;
+          << "Illegal comparison with a basic type." << endl;
       }
     }
 
@@ -833,13 +864,9 @@ void leq_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     e2->semant_checker(cur_class);
 
-    if(e1->get_type() != Int){
+    if((e1->get_type() != Int) || (e2->get_type() != Int)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "First expression is not of type Int"<<endl;
-    }
-    if(e2->get_type() != Int){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Second expression is not of type Int"<<endl;
+        << "non-Int arguments on  '<=' expression." << endl;
     }
     set_type(Bool);
 }
@@ -849,7 +876,8 @@ void comp_class::semant_checker(Symbol cur_class){
     e1->semant_checker(cur_class);
     if(e1->get_type() != Bool){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Expression is not of type Bool"<<endl;
+        << "Argument of 'not' has type "
+        << e1->get_type() << " instead of Bool." << endl;
     }
     set_type(Bool);
 }
@@ -894,7 +922,8 @@ void object_class::semant_checker(Symbol cur_class){
     }
     else{
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Object " << name << " is not defined" << endl;
+        << "Undeclared identifier " << name << "." << endl;
+      set_type(Object);
     }
     
 }
@@ -933,6 +962,7 @@ void program_class::semant()
     if(!classtable->inheritanceCheck()){
         //TODO
         //CheckFeatures
+        semant_checker();
         
         //TODO
         //SetTypes

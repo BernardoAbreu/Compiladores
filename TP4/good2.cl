@@ -1,13 +1,13 @@
 class C inherits A{  
-	a : Int;
-	b : Bool;
-	init(x : Int, y : Bool) : C {
+    a : Int;
+    b : Bool;
+    init(x : Int, y : Bool) : C {
            {
-		a <- x;
-		b <- y;
-		self;
+        a <- x;
+        b <- y;
+        self;
            }
-	};
+    };
 };
 
 class B inherits A {
@@ -28,7 +28,7 @@ class A inherits IO{
 };
 
 Class Main inherits C{
-	main():C {
-	  (new C).init(1,true)
-	};
+    main():C {
+      (new C)
+    };
 };
