@@ -58,9 +58,13 @@ public:
    tree_node *copy()     { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
 
+
+   virtual Symbol get_name() = 0;
+
    virtual void semant_checker(Symbol) = 0;
    virtual void add_feature(Symbol) = 0;
    virtual bool is_Main_meth() = 0;
+   virtual bool isMethod() = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -230,6 +234,8 @@ public:
 
    void add_feature(Symbol);
 
+   bool isMethod() { return true; }
+
    bool is_Main_meth();
 
 #ifdef Feature_SHARED_EXTRAS
@@ -262,6 +268,8 @@ public:
 
    void semant_checker(Symbol);
    void add_feature(Symbol);
+
+   bool isMethod() { return false; }
 
    bool is_Main_meth()  { return false; }
 

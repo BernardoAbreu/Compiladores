@@ -1,11 +1,16 @@
 class C inherits A{  
     a : Int;
     b : Bool;
-    init(x : Int, y : Bool) : C {
+    c : SELF_TYPE;
+    d : C;
+    init(x : Int, y : Bool, z : SELF_TYPE) : C {
         {
             a <- x;
             b <- y;
             while (1) loop 1 pool;  --Error on loop condition type
+            a <- self;
+            c <- self;
+            d <- self;
             self;
         }
     };
@@ -23,6 +28,7 @@ class B inherits A {
                         a : String => "String\n";
                         c : Bool => "Bool\n";
                         d : Int => "Int\n";     --Variable with repeated type
+                        e : SELF_TYPE => (new B);
                 esac
         };
         try():String{           --Redefinition of method
@@ -32,11 +38,13 @@ class B inherits A {
 
 class A inherits IO{
         oi():Int { "1" };       --Error on return type
+        bye():SELF_TYPE {(new SELF_TYPE)};
 };
 
 Class Main inherits C{          
     a : Int;                    --Redefinition of inherited attribute
     b : Int;                    --Redefinition of inhreited attribute
+    o : Int <- 10;
     main():C {{
         if ("a" = 2)           --Error on comparison expression
         then 0
@@ -52,6 +60,13 @@ Class Main inherits C{
         a <- "Int " * "Bool";   --Error on arithmetic expression
         a <- ~a;
         a <- ~"a";              --Error on negative expression type
+
+
+        (let x : Int <- true, y : Int <- 3, o : Int <- 20, g : Int, h : SELF_TYPE in
+            {
+                 g <- o + y;
+            }
+        );
 
         if (2<false)
         then not 2

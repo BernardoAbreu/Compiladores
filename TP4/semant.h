@@ -32,8 +32,8 @@ private:
 
   std::map<Symbol, Class_> *class_map;
 
-  bool inheritanceUtil(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
-
+  bool check_Cycle(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
+  bool check_Parent(Symbol class_name);
 
 
 public:
@@ -44,7 +44,7 @@ public:
   ostream& semant_error(Symbol filename, tree_node *t);
 
   Class_ get_Class(Symbol c);
-  bool inheritanceCheck();
+  bool inheritanceErrorCheck();
 };
 
 SymbolTable<Symbol, Symbol> *method_map;
