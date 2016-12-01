@@ -16,8 +16,11 @@ class A inherits IO {
 
 class B inherits C {
 	v2 : Int;
-	f3(self : Int, arg2 : SELF_TYPE) : Object {
-		(new SELF_TYPE).init(2)
+	f3(self : Int, arg2 : SELF_TYPE) : Object {{
+		v2 <- v4@B.f2();
+
+		(new SELF_TYPE).init(2);
+	}
 	};
 	f4() : SELF_TYPE {{
 		case v2 of
@@ -27,8 +30,9 @@ class B inherits C {
 		esac;
 	}};
 	f5() : Object {
-		v4@SELF_TYPE.f2()
+		v4@SELF_TYPE.f2(1)
 	};
+	f2(i : Int) : String {out_int(i)};
 };
 
 class C inherits A{
@@ -43,4 +47,4 @@ class C inherits A{
 class D inherits B {
 
 	v3 : String;
-}
+};

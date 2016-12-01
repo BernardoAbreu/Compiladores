@@ -138,20 +138,12 @@ bool ClassTable::check_Cycle(Symbol vertex, bool visited[], bool *recStack, std:
         //Check Parent
         if(parent != No_class){
             if (!((parent == Int) || (parent == Str) || (parent == Bool) || (parent == SELF_TYPE))){
-                std::map<Symbol, Class_>::iterator it;
-                it = class_map->find(parent);
-                if (it != class_map->end()){
+                if (class_map->find(parent) != class_map->end()){
                     // Recur for parent
                     int p = (*index)[parent];
-                    if ( !visited[p] && check_Cycle(parent, visited, recStack,index) ){
-                        semant_error(it->second)<< "Class "
-                          << vertex << ", or an ancestor of " << vertex
-                          << ", is involved in an inheritance cycle." << endl;
-                        return true;
-                    }
-                    else if (recStack[p]){
-                        semant_error(it->second)<< "Class "
-                          << vertex << ", or an ancestor of " << vertex
+                    if ((!visited[p] && check_Cycle(parent, visited, recStack,index) ) || (recStack[p])){
+                        semant_error(c)<< "Class " << vertex
+                          << ", or an ancestor of " << vertex
                           << ", is involved in an inheritance cycle." << endl;
                         return true;
                     }
@@ -165,10 +157,10 @@ bool ClassTable::check_Cycle(Symbol vertex, bool visited[], bool *recStack, std:
     return false;
 }
  
-bool ClassTable::check_Parent(Symbol class_name){
-  Class_ c = (*class_map)[class_name];
+bool ClassTable::check_Parent(Class_ c){
   Symbol parent = c->get_parent();
-  
+  Symbol class_name = c->get_name();
+
   if(parent != No_class){
     if ((parent == Int) || (parent == Str) || (parent == Bool) || (parent == SELF_TYPE)){
       semant_error(c) << "Class " << class_name
@@ -176,11 +168,9 @@ bool ClassTable::check_Parent(Symbol class_name){
       return true;
     }
     else{
-      std::map<Symbol, Class_>::iterator it;
-      it = class_map->find(parent);
-      if (it == class_map->end()){
+      if (class_map->find(parent) == class_map->end()){
           semant_error(c) << "Class " << class_name
-          << " inherits from an undefined class " << parent << "." << endl;
+            << " inherits from an undefined class " << parent << "." << endl;
           return true;
       }
     }
@@ -214,7 +204,7 @@ bool ClassTable::inheritanceErrorCheck(){
 
     
     for (std::map<Symbol, Class_>::iterator it=class_map->begin(); it!=class_map->end(); ++it)
-        if (check_Parent(it->first) || check_Cycle(it->first, visited, recStack,&index)){
+        if (check_Parent(it->second) || check_Cycle(it->first, visited, recStack,&index)){
             return true;
         }
  
@@ -524,13 +514,21 @@ void remove_features(){
 method_class* find_Method(Class_ c, Symbol method_name){
 
     method_class* meth = NULL;
-    Features features = c->get_features();
+    Symbol class_name = c->get_name();
 
-    for(int i = features->first(); features->more(i); i = features->next(i)){
-      Feature feat = features->nth(i);
-      if( feat->isMethod() && (feat->get_name() == method_name)){
-        return (method_class*)feat;
+    while(class_name != No_class){
+      Features features = c->get_features();
+
+      for(int i = features->first(); features->more(i); i = features->next(i)){
+        Feature feat = features->nth(i);
+        if( feat->isMethod() && (feat->get_name() == method_name)){
+          return (method_class*)feat;
+        }
       }
+
+      class_name = c->get_parent();
+      c = classtable->get_Class(c->get_parent());
+
     }
 
     return meth;
@@ -738,88 +736,81 @@ void assign_class::semant_checker(Symbol cur_class){
     set_type(finaltype);
 }
 
+
+
 //TODO
 // static_dispatch_class::dump_with_types prints the expression,
 // static dispatch class, function name, and actual arguments
 // of any static dispatch.  
 //
 void static_dispatch_class::semant_checker(Symbol cur_class){
-    Symbol expr_type, actual_type, formal_type, dispatch_type;
-    Symbol method_type;
-
+    int i, j;
+    Symbol expr_type, actual_type, formal_type, dispatch_type, method_type;
     method_class *method;
-
-
     Class_ c;
-    //cerr << "Static dispatch 1" << endl;
 
+    dispatch_type = Object;
     expr->semant_checker(cur_class);
-
-    //cerr << "Static dispatch 2" << endl;
-
     expr_type = expr->get_type();
-    //cerr << "Static dispatch 3" << endl;
+    
+    
+    //Static only
+    /*******************************************************/
     if(type_name == SELF_TYPE){
       //cerr << "Static dispatch 4" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
           << "Static dispatch to SELF_TYPE." << endl;
-        dispatch_type = Object;
     }
+    /*******************************************************/
     else if ((c = classtable->get_Class(type_name)) == NULL){
       //cerr << "Static dispatch 5" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) << "Class " << type_name
           << " is undefined." << endl;
-        dispatch_type = Object;
     }
     else{
-        //cerr << "Static dispatch 6" << endl;
+        //Static only
+        /*******************************************************/
         if(!type_check(expr_type, type_name)){
            classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-            << "Inferred type " << expr_type << " of object "
-            << " does not conform to class type " << type_name << "." << endl;
-          dispatch_type = Object;
+            << "Expression type " << expr_type
+            << " does not conform to declared static dispatch type " << type_name << "." << endl;
+            
         }
-
-        method = find_Method(c,name);
-
-        if(method == NULL){
-            classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-              << "Undeclared method " << name << "." << endl;
-            dispatch_type = Object;
-        }
+        /*******************************************************/
         else{
+          method = find_Method(c,name);
 
-            method_type = method->get_type();
-            Formals formals = method->get_formals();
+          if(method == NULL){
+              classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                << "Dispatch to undefined method " << name << "." << endl;
+          }
+          else{
 
-            int j = formals->first();
-            for(int i = actual->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
-              actual->nth(i)->semant_checker(cur_class);
-              actual_type = actual->nth(i)->get_type();
+              method_type = method->get_type();
+              Formals formals = method->get_formals();
+              
+              for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
+                actual->nth(i)->semant_checker(cur_class);
+                actual_type = actual->nth(i)->get_type();
 
-              if (!formals->more(j)){
-                classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                  << "Too many arguments." << endl;
-              }
-              else{
                 formal_type =  formals->nth(j)->get_type_decl();
 
                 if(!type_check(actual_type, formal_type)){
                     classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
                       << "Inferred type " << actual_type << " of argument of "
-                      << get_name() << " does not conform to argument's declared type "
+                      << name << " does not conform to argument's declared type "
                       << formal_type << "." << endl;
                 }
               }
-            }
 
-            if (formals->more(j)){
-                classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                  << "Too few arguments." << endl;
-            }
+              if ( (actual->more(i)) || (formals->more(j)) ){
+                  classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                    << "Method " << name << " called with wrong number of arguments." << endl;
+              }
 
-
-            dispatch_type = (method_type == SELF_TYPE) ? expr_type : method_type;
+              dispatch_type = (method_type == SELF_TYPE) ? expr_type : method_type;
+          }
+        
         }
     }
 
@@ -833,15 +824,13 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
 //   static_dispatch_class::dump_with_types 
 //
 void dispatch_class::semant_checker(Symbol cur_class){
-    Symbol expr_type, actual_type, formal_type, dispatch_type;
-    Symbol method_type, type_name;
-
+    int i, j;
+    Symbol expr_type, actual_type, formal_type, dispatch_type, method_type, type_name;
     method_class *method;
 
-    dispatch_type = Object;
     Class_ c;
-    //cerr << "dispatch 1" << endl;
 
+    dispatch_type = Object;
     expr->semant_checker(cur_class);
 
     //cerr << "dispatch 2" << endl;
@@ -864,37 +853,32 @@ void dispatch_class::semant_checker(Symbol cur_class){
         if(method == NULL){
             //cerr << "dispatch 7" << endl;
             classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-              << "Undeclared method " << name << "." << endl;
+              << "Dispatch to undefined method " << name << "." << endl;
         }
         else{
           //cerr << "dispatch 8" << endl;
+          //
             method_type = method->get_type();
             Formals formals = method->get_formals();
 
-            int j = formals->first();
-            for(int i = actual->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
+    
+            for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
               actual->nth(i)->semant_checker(cur_class);
               actual_type = actual->nth(i)->get_type();
 
-              if (!formals->more(j)){
-                classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                  << "Too many arguments." << endl;
-              }
-              else{
-                formal_type =  formals->nth(j)->get_type_decl();
+              formal_type =  formals->nth(j)->get_type_decl();
 
-                if(!type_check(actual_type, formal_type)){
-                    classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                      << "Inferred type " << actual_type << " of argument of "
-                      << get_name() << " does not conform to argument's declared type "
-                      << formal_type << "." << endl;
-                }
+              if(!type_check(actual_type, formal_type)){
+                  classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                    << "Inferred type " << actual_type << " of argument of "
+                    << name << " does not conform to argument's declared type "
+                    << formal_type << "." << endl;
               }
             }
 
-            if (formals->more(j)){
+            if ( (actual->more(i)) || (formals->more(j)) ){
                 classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                  << "Too few arguments." << endl;
+                  << "Method " << name << " called with wrong number of arguments." << endl;
             }
 
 
@@ -906,6 +890,7 @@ void dispatch_class::semant_checker(Symbol cur_class){
     set_type(dispatch_type);
 
 }
+
 
 //
 // cond_class::dump_with_types dumps each of the three expressions
@@ -1193,8 +1178,6 @@ void object_class::semant_checker(Symbol cur_class){
     }
     
 }
-
-
 
 
 

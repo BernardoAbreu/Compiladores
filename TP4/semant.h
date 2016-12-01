@@ -33,7 +33,7 @@ private:
   std::map<Symbol, Class_> *class_map;
 
   bool check_Cycle(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
-  bool check_Parent(Symbol class_name);
+  bool check_Parent(Class_);
 
 
 public:
