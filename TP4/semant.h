@@ -34,6 +34,7 @@ private:
 
   bool check_Cycle(Symbol vertex, bool visited[], bool *recStack,std::map<Symbol,int> *index);
   bool check_Parent(Class_);
+  bool error;
 
 
 public:
@@ -45,6 +46,7 @@ public:
 
   Class_ get_Class(Symbol c);
   bool inheritanceErrorCheck();
+  bool hasError() { return error; };
 };
 
 SymbolTable<Symbol, Symbol> *method_map;

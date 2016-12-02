@@ -16,6 +16,7 @@ class A inherits IO {
 
 class B inherits C {
 	v2 : Int;
+	v3 : Int;
 	f3(self : Int, arg2 : SELF_TYPE) : Object {{
 		v2 <- v4@B.f2();
 

@@ -60,10 +60,10 @@ public:
 
 
    virtual Symbol get_name() = 0;
+   virtual Symbol get_type() = 0;
 
    virtual void semant_checker(Symbol) = 0;
    virtual void add_feature(Symbol) = 0;
-   virtual bool is_Main_meth() = 0;
    virtual bool isMethod() = 0;
 
 #ifdef Feature_EXTRAS
@@ -236,8 +236,6 @@ public:
 
    bool isMethod() { return true; }
 
-   bool is_Main_meth();
-
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
 #endif
@@ -270,8 +268,6 @@ public:
    void add_feature(Symbol);
 
    bool isMethod() { return false; }
-
-   bool is_Main_meth()  { return false; }
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS

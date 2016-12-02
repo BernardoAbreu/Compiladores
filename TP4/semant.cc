@@ -85,8 +85,8 @@ static void initialize_constants(void)
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
 
-    /* Fill this in */
     bool main_class = false;
+    error = false;
     
     class_map = new std::map<Symbol, Class_>();
 
@@ -108,7 +108,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
         }
         else if ( class_map->find(cur_name) != class_map->end()){ // Check for class redefinition
             semant_error(cur_class) << "Class " << cur_name 
-            << "was previously defined." << endl;
+            << " was previously defined." << endl;
+            error = true;
         }
         else{
             class_map->insert(std::make_pair(cur_name, cur_class));
@@ -127,7 +128,7 @@ bool ClassTable::check_Cycle(Symbol vertex, bool visited[], bool *recStack, std:
 
     int v = (*index)[vertex];
 
-    if(visited[v] == false){
+    if(!visited[v]){
         // Mark the current node as visited and part of recursion stack
         visited[v] = true;
         recStack[v] = true;
@@ -136,27 +137,26 @@ bool ClassTable::check_Cycle(Symbol vertex, bool visited[], bool *recStack, std:
         Symbol parent = c->get_parent();
 
         //Check Parent
-        if(parent != No_class){
-            if (!((parent == Int) || (parent == Str) || (parent == Bool) || (parent == SELF_TYPE))){
-                if (class_map->find(parent) != class_map->end()){
-                    // Recur for parent
-                    int p = (*index)[parent];
-                    if ((!visited[p] && check_Cycle(parent, visited, recStack,index) ) || (recStack[p])){
-                        semant_error(c)<< "Class " << vertex
-                          << ", or an ancestor of " << vertex
-                          << ", is involved in an inheritance cycle." << endl;
-                        return true;
-                    }
-                }
-            }
+      if((parent != No_class) && (parent != Int) && (parent != Str) && (parent != Bool) && (parent != SELF_TYPE)){
+          if (class_map->find(parent) != class_map->end()){
+              // Recur for parent
+              int p = (*index)[parent];
+              if ((!visited[p] && check_Cycle(parent, visited, recStack,index) ) || (recStack[p])){
+                  semant_error(c)<< "Class " << vertex
+                    << ", or an ancestor of " << vertex
+                    << ", is involved in an inheritance cycle." << endl;
+                  return true;
+              }
+          }
         
-        }
+      }
  
     }
     recStack[v] = false;  // remove the vertex from recursion stack
     return false;
 }
- 
+
+
 bool ClassTable::check_Parent(Class_ c){
   Symbol parent = c->get_parent();
   Symbol class_name = c->get_name();
@@ -194,20 +194,18 @@ bool ClassTable::inheritanceErrorCheck(){
         visited[i] = false;
         recStack[i] = false;
     }
- 
 
     i = 0;
     for (std::map<Symbol, Class_>::iterator it=class_map->begin(); it!=class_map->end(); ++it){
         index[it->first] = i;
         i++;
     }
-
     
     for (std::map<Symbol, Class_>::iterator it=class_map->begin(); it!=class_map->end(); ++it)
         if (check_Parent(it->second) || check_Cycle(it->first, visited, recStack,&index)){
             return true;
         }
- 
+
     return false;
 }
 
@@ -375,18 +373,8 @@ ostream& ClassTable::semant_error()
 
 /*******************************************************************
 *   Helper Functions
-*
-*   type_check(Symbol c, Symbol type1, Symbol type2)
-*   join_types(Symbol c, Symbol type1, Symbol type2)
-*   method_class::is_Main_meth()
-*   method_class::add_feature(Symbol c)
-*   attr_class::add_feature(Symbol c)
-*   build_feat(Symbol c)
-*   build_features(Symbol c)
-*   remove_features()
 *   
 ********************************************************************/
-
 
 //type1 <= type2
 bool type_check(Symbol type1, Symbol type2){
@@ -425,19 +413,28 @@ Symbol join_types(Symbol type1, Symbol type2){
     return Object;
 }
 
-bool method_class::is_Main_meth(){
-  return get_name() == main_meth;
-}
-
 void method_class::add_feature(Symbol c){
     Symbol name = get_name();
+    Symbol *meth_type;
 
     if (method_map->probe(name) != NULL){
       classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
         << "Method " << name << " is multiply defined." << endl;
     }
     else{
-      method_map->addid(name, &return_type);
+
+      meth_type = method_map->lookup(name);
+
+      if((meth_type != NULL) && ((*meth_type) != return_type)){
+          classtable->semant_error(classtable->get_Class(c)->get_filename(), this)
+            << "In redefined method " << name 
+            <<", return type " << return_type << " is different from original return type "
+            << *meth_type << "." << endl;
+      }
+      else{
+        method_map->addid(name, &return_type);
+      }      
+      
     }
 }
 
@@ -467,28 +464,37 @@ void attr_class::add_feature(Symbol c){
 }
 
 void build_feat(Symbol c){
+  Symbol name, feat_type;
+  Features features;
+  Class_ cur_class;
+
   if(c == No_class) return;
 
-  bool is_Main = false;
-
-  Class_ cur_class = classtable->get_Class(c);
+  cur_class = classtable->get_Class(c);
 
   build_feat(cur_class->get_parent());
 
   method_map->enterscope();
   attribute_map->enterscope();
+    
+  features = cur_class->get_features();
 
-  for(int i = cur_class->get_features()->first(); cur_class->get_features()->more(i); i = cur_class->get_features()->next(i)){
-      cur_class->get_features()->nth(i)->add_feature(c);
-      if(c == Main){
-        is_Main |= cur_class->get_features()->nth(i)->is_Main_meth();
+  for(int i = features->first(); features->more(i); i = features->next(i)){
+      Feature feat = features->nth(i);
+      name = feat->get_name();
+      feat_type = feat->get_type();
+      if(feat->isMethod()){
+          Symbol *meth_type;
+          if ((method_map->probe(name) == NULL) && (((meth_type = method_map->lookup(name)) == NULL) || (*meth_type == feat_type))){
+              method_map->addid(name, new Symbol(feat_type));  
+          }
+      }
+      else{
+          if((name != self) && (attribute_map->lookup(name) == NULL)){
+              attribute_map->addid(name, new Symbol(feat_type));
+          }
       }
   }
-
-  if((c == Main) && !is_Main){
-    classtable->semant_error(cur_class)<< "Missing method main." << endl;
-  }
-
 }
 
 
@@ -496,7 +502,27 @@ void build_features(Symbol c){
     method_map = new SymbolTable<Symbol, Symbol>();
     attribute_map = new SymbolTable<Symbol, Symbol>();
 
-    build_feat(c);
+    bool is_Main = false;
+
+    Class_ cur_class = classtable->get_Class(c);
+
+    build_feat(cur_class->get_parent());
+
+    method_map->enterscope();
+    attribute_map->enterscope();
+    
+    Features features = cur_class->get_features();
+    for(int i = features->first(); features->more(i); i = features->next(i)){
+        features->nth(i)->add_feature(c);
+        Feature feat = features->nth(i);
+        if(c == Main){
+          is_Main |= (feat->isMethod() && (feat->get_name() == main_meth));
+        }
+    }
+
+    if((c == Main) && !is_Main){
+      classtable->semant_error(cur_class)<< "No 'main' method in class Main." << endl;
+    }
 
     attribute_map->addid(self, new Symbol(SELF_TYPE));
 
@@ -528,7 +554,6 @@ method_class* find_Method(Class_ c, Symbol method_name){
 
       class_name = c->get_parent();
       c = classtable->get_Class(c->get_parent());
-
     }
 
     return meth;
@@ -537,32 +562,18 @@ method_class* find_Method(Class_ c, Symbol method_name){
 
 /***********************************************************************/
 
-//
-//  program_class prints "program" and then each of the
-//  component classes of the program, one at a time, at a
-//  greater indentation. The recursive invocation on
-//  "classes->nth(i)->dump_with_types(...)" shows how useful
-//  and compact virtual functions are for this kind of computation.
-//
-//  Note the use of the iterator to cycle through all of the
-//  classes.  The methods first, more, next, and nth on AST lists
-//  are defined in tree.h.
-//
+
 void program_class::semant_checker(){
 
    for(int i = classes->first(); classes->more(i); i = classes->next(i))
       classes->nth(i)->semant_checker();
 }
 
-//
-// Prints the components of a class, including all of the features.
-// Note that printing the Features is another use of an iterator.
-//
+
 void class__class::semant_checker(){
 
    //Create tables and check for method and attribute definition errors
    build_features(get_name());
-
 
    for(int i = features->first(); features->more(i); i = features->next(i)){
       //cerr << i << endl;
@@ -574,47 +585,29 @@ void class__class::semant_checker(){
 }
 
 
-//TODO
-//SELF
-// dump_with_types for method_class first prints that this is a method,
-// then prints the method name followed by the formal parameters
-// (another use of an iterator, this time access all of the list members
-// of type Formal), the return type, and finally calls set_type recursively
-// on the method body. 
-
 void method_class::semant_checker(Symbol cur_class){
     Symbol expr_type, ret_type;
-    //s << "method1"<<endl;
+
     for(int i = formals->first(); formals->more(i); i = formals->next(i))
         formals->nth(i)->semant_checker(cur_class);
-    //cerr << "method2"<<endl;
+
     attribute_map->enterscope();
-    //cerr << "method3"<<endl;
+
     expr->semant_checker(cur_class);
-    //cerr << "method4"<<endl;
-    //expr_type = expr->get_type();
-   
-    //cerr << "method5"<<endl;
+
     expr_type = (expr->get_type() == SELF_TYPE) ? cur_class : expr->get_type();
     ret_type = (return_type == SELF_TYPE) ? cur_class : return_type;
-
-    //cerr << "method6"<<endl;
-    
     
     if (!type_check(expr_type, ret_type)){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
         << "Inferred return type "<< expr->get_type() << " of method " << get_name()
         << " does not conform to declared return type " << return_type << "." << endl;
     }
-    //cerr << "method7"<<endl;
+
     attribute_map->exitscope();
 }
 
-//  TODO
-//  check self
-//  attr_class::dump_with_types prints the attribute name, type declaration,
-//  and any initialization expression at the appropriate offset.
-//
+
 void attr_class::semant_checker(Symbol cur_class){
     Symbol init_type, attr_type;
 
@@ -623,7 +616,6 @@ void attr_class::semant_checker(Symbol cur_class){
           << "'self' cannot be the name of an attribute." << endl;  
     }
     
-
     init->semant_checker(cur_class);
     if(init->get_type() != No_type){
       //init_type = init->get_type();
@@ -639,10 +631,7 @@ void attr_class::semant_checker(Symbol cur_class){
     }
 }
 
-//
-// formal_class::dump_with_types dumps the name and type declaration
-// of a formal parameter.
-//
+
 void formal_class::semant_checker(Symbol cur_class){
     bool error = false;
     if (name == self){
@@ -655,7 +644,7 @@ void formal_class::semant_checker(Symbol cur_class){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
         << "Formal parameter " << name << " cannot have type SELF_TYPE." << endl;
 
-      error == true;
+      error = true;
     }
     
     if (!error){
@@ -663,10 +652,7 @@ void formal_class::semant_checker(Symbol cur_class){
     }
 }
 
-//TODO
-// branch_class::dump_with_types dumps the name, type declaration,
-// and body of any case branch.
-//
+
 void branch_class::semant_checker(Symbol cur_class){
 
    if(attribute_map->probe(type_decl) != NULL){
@@ -688,65 +674,44 @@ void branch_class::semant_checker(Symbol cur_class){
    expr->semant_checker(cur_class);
 }
 
-//
-// assign_class::dump_with_types prints "assign" and then (indented)
-// the variable being assigned, the expression, and finally the type
-// of the result.  Note the call to set_type (see above) at the
-// end of the method.
-//
+
 void assign_class::semant_checker(Symbol cur_class){
     Symbol expr_type, attr_type, finaltype;
     Symbol *var_type;
-    ////cerr << "assign1" << endl;
+
     expr->semant_checker(cur_class);
-    ////cerr << "assign2" << endl;
-    //expr_type = expr->get_type();
     
-    ////cerr << "assign3" << endl;
     var_type = (attribute_map->lookup(name));
-    ////cerr << "assign4" << endl;
+    
     if (var_type != NULL){
-      ////cerr << "assign5" << endl;
-      ////cerr << expr_type << endl;
       expr_type = (expr->get_type() == SELF_TYPE) ? cur_class : expr->get_type();
       attr_type = (*var_type == SELF_TYPE) ? cur_class : *var_type;
+    
       if (!type_check(expr_type, attr_type)){
-        
-        ////cerr << "assign6" << endl;
-      //}
-      //else{
-        //cerr << "assign7" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
           << "Type " << expr->get_type() 
           << " of assigned expression does not conform to declared type "
           << *var_type << " of identifier " << name << "." << endl;
-        //finaltype = Object;
       }
+
       finaltype = expr_type;
     }
     else{
-      //cerr << "assign8" << endl;
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
         << "Assignment to undeclared variable " << name << "." << endl;
 
       finaltype = Object;
     }
-    //cerr << "assign9" << endl;
-
+    
     set_type(finaltype);
 }
 
 
-
-//TODO
-// static_dispatch_class::dump_with_types prints the expression,
-// static dispatch class, function name, and actual arguments
-// of any static dispatch.  
-//
 void static_dispatch_class::semant_checker(Symbol cur_class){
     int i, j;
     Symbol expr_type, actual_type, formal_type, dispatch_type, method_type;
     method_class *method;
+    Formal  formal;
     Class_ c;
 
     dispatch_type = Object;
@@ -757,13 +722,11 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
     //Static only
     /*******************************************************/
     if(type_name == SELF_TYPE){
-      //cerr << "Static dispatch 4" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
           << "Static dispatch to SELF_TYPE." << endl;
     }
     /*******************************************************/
     else if ((c = classtable->get_Class(type_name)) == NULL){
-      //cerr << "Static dispatch 5" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) << "Class " << type_name
           << " is undefined." << endl;
     }
@@ -771,44 +734,45 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
         //Static only
         /*******************************************************/
         if(!type_check(expr_type, type_name)){
-           classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-            << "Expression type " << expr_type
-            << " does not conform to declared static dispatch type " << type_name << "." << endl;
+            classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+              << "Expression type " << expr_type
+              << " does not conform to declared static dispatch type " << type_name << "." << endl;
             
         }
         /*******************************************************/
         else{
-          method = find_Method(c,name);
+            method = find_Method(c,name);
 
-          if(method == NULL){
-              classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                << "Dispatch to undefined method " << name << "." << endl;
-          }
-          else{
+            if(method == NULL){
+                classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                  << "Dispatch to undefined method " << name << "." << endl;
+            }
+            else{
+                method_type = method->get_type();
+                Formals formals = method->get_formals();
 
-              method_type = method->get_type();
-              Formals formals = method->get_formals();
-              
-              for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
-                actual->nth(i)->semant_checker(cur_class);
-                actual_type = actual->nth(i)->get_type();
+        
+                for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(j)){
+                  actual->nth(i)->semant_checker(cur_class);
+                  actual_type = actual->nth(i)->get_type();
 
-                formal_type =  formals->nth(j)->get_type_decl();
+                  formal =  formals->nth(j);
+                  formal_type = formal->get_type_decl();
 
-                if(!type_check(actual_type, formal_type)){
-                    classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                      << "Inferred type " << actual_type << " of argument of "
-                      << name << " does not conform to argument's declared type "
-                      << formal_type << "." << endl;
+                  if(!type_check(actual_type, formal_type)){
+                      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                        << "In call of method " << name << ", type " << actual_type
+                        << " of parameter " << formal->get_name()
+                        << " does not conform to declared type " << formal_type << "." << endl;
+                  }
                 }
-              }
 
-              if ( (actual->more(i)) || (formals->more(j)) ){
-                  classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                    << "Method " << name << " called with wrong number of arguments." << endl;
-              }
+                if ( (actual->more(i)) || (formals->more(j)) ){
+                    classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+                      << "Method " << name << " called with wrong number of arguments." << endl;
+                }
 
-              dispatch_type = (method_type == SELF_TYPE) ? expr_type : method_type;
+                dispatch_type = (method_type == SELF_TYPE) ? expr_type : method_type;
           }
         
         }
@@ -818,61 +782,49 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
 }
 
 
-//CHECK SELF_TYPE for all
-//TODO
-//   dispatch_class::dump_with_types is similar to 
-//   static_dispatch_class::dump_with_types 
-//
 void dispatch_class::semant_checker(Symbol cur_class){
     int i, j;
     Symbol expr_type, actual_type, formal_type, dispatch_type, method_type, type_name;
     method_class *method;
-
+    Formal  formal;
     Class_ c;
 
     dispatch_type = Object;
+
     expr->semant_checker(cur_class);
-
-    //cerr << "dispatch 2" << endl;
-
     expr_type = expr->get_type();
-    //cerr << "dispatch 3" << endl;
+
 
     type_name = (expr_type == SELF_TYPE) ? cur_class : expr_type;
 
     if ((c = classtable->get_Class(type_name)) == NULL){
-      //cerr << "dispatch 4" << endl;
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
           << "Class " << type_name
           << " is undefined." << endl;
     }
     else{
-        //cerr << "dispatch 5" << endl;
         method = find_Method(c,name);
-        //cerr << "dispatch 6" << endl;
+
         if(method == NULL){
-            //cerr << "dispatch 7" << endl;
             classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
               << "Dispatch to undefined method " << name << "." << endl;
         }
         else{
-          //cerr << "dispatch 8" << endl;
-          //
             method_type = method->get_type();
             Formals formals = method->get_formals();
 
-    
-            for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(i)){
+            for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(j)){
               actual->nth(i)->semant_checker(cur_class);
               actual_type = actual->nth(i)->get_type();
 
-              formal_type =  formals->nth(j)->get_type_decl();
+              formal =  formals->nth(j);
+              formal_type = formal->get_type_decl();
 
               if(!type_check(actual_type, formal_type)){
                   classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-                    << "Inferred type " << actual_type << " of argument of "
-                    << name << " does not conform to argument's declared type "
-                    << formal_type << "." << endl;
+                    << "In call of method " << name << ", type " << actual_type
+                    << " of parameter " << formal->get_name()
+                    << " does not conform to declared type " << formal_type << "." << endl;
               }
             }
 
@@ -881,21 +833,14 @@ void dispatch_class::semant_checker(Symbol cur_class){
                   << "Method " << name << " called with wrong number of arguments." << endl;
             }
 
-
             dispatch_type = (method_type == SELF_TYPE) ? expr_type : method_type;
         }
-        //cerr << "dispatch 9" << endl;
     }
 
     set_type(dispatch_type);
-
 }
 
 
-//
-// cond_class::dump_with_types dumps each of the three expressions
-// in the conditional and then the type of the entire expression.
-//
 void cond_class::semant_checker(Symbol cur_class){
 
     pred->semant_checker(cur_class);
@@ -910,10 +855,6 @@ void cond_class::semant_checker(Symbol cur_class){
     set_type(join_types(then_exp->get_type(),else_exp->get_type()));
 }
 
-//
-// loop_class::dump_with_types dumps the predicate and then the
-// body of the loop, and finally the type of the entire expression.
-//
 void loop_class::semant_checker(Symbol cur_class){
 
     pred->semant_checker(cur_class);
@@ -926,64 +867,54 @@ void loop_class::semant_checker(Symbol cur_class){
     set_type(Object);
 }
 
-//
-//  typcase_class::dump_with_types dumps each branch of the
-//  the Case_ one at a time.  The type of the entire expression
-//  is dumped at the end.
-//
 void typcase_class::semant_checker(Symbol cur_class){
     Symbol expr_type, case_type;
     Case cur_case;
 
-    //cerr << "case1" << endl;
+
     expr->semant_checker(cur_class);
-    //cerr << "case2" << endl;
+
     attribute_map->enterscope();
-    //cerr << "case3" << endl;
+
     for(int i = cases->first(); cases->more(i); i = cases->next(i))
-     cases->nth(i)->semant_checker(cur_class);
-    //cerr << "case4" << endl;
+        cases->nth(i)->semant_checker(cur_class);
+
     cur_case =  cases->nth(cases->first());
     case_type = cur_case->get_expr()->get_type();
     case_type = (case_type == SELF_TYPE) ? cur_class : case_type;
-    //cerr << "case5" << endl;
+  
     for(int i = cases->first(); cases->more(i); i = cases->next(i)){
         cur_case =  cases->nth(i);
         expr_type = cur_case->get_expr()->get_type();
         expr_type = (expr_type == SELF_TYPE) ? cur_class : expr_type;
         case_type = join_types(case_type, expr_type);
     }
-    //cerr << "case6" << endl;
+
     attribute_map->exitscope();
-    //cerr << "case7" << endl;
+
     set_type(case_type);
 }
 
-//
-//  The rest of the cases for Expression are very straightforward
-//  and introduce nothing that isn't already in the code discussed
-//  above.
-//
+
 void block_class::semant_checker(Symbol cur_class){
     Symbol expr_type;
 
     expr_type = No_type;
 
     for(int i = body->first(); body->more(i); i = body->next(i)){
-     body->nth(i)->semant_checker(cur_class);
-     expr_type = body->nth(i)->get_type();
+      body->nth(i)->semant_checker(cur_class);
+      expr_type = body->nth(i)->get_type();
     }
+
     set_type(expr_type);
 }
 
 
-//TODO
 void let_class::semant_checker(Symbol cur_class){
     Symbol init_type, let_type;
 
     init->semant_checker(cur_class);
 
-    //TODO
     if(init->get_type() != No_type){
       init_type = (init->get_type() == SELF_TYPE) ? cur_class : init->get_type();
       let_type = (type_decl == SELF_TYPE) ? cur_class : type_decl;
@@ -1094,16 +1025,12 @@ void eq_class::semant_checker(Symbol cur_class){
     e2_type = e2->get_type();
 
 
-    if((e1_type == Int) || (e1_type == Str) || (e1_type == Bool)){
+    if((e1_type == Int) || (e1_type == Str) || (e1_type == Bool) ||
+        (e2_type == Int) || (e2_type == Str) || (e2_type == Bool)){
+
       if (e1_type != e2_type){
           classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
             << "Illegal comparison with a basic type." << endl;
-      }
-    }
-    else{
-      if((e2_type == Int) || (e2_type == Str) || (e2_type == Bool)){
-        classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-          << "Illegal comparison with a basic type." << endl;
       }
     }
 
@@ -1144,17 +1071,8 @@ void string_const_class::semant_checker(Symbol cur_class){
     set_type(Str);
 }
 
-
-//TODO
 void new__class::semant_checker(Symbol cur_class){
-    Symbol type = get_type_name();
-    set_type(type);
-    // if (type == SELF_TYPE){
-    //   set_type(cur_class);   
-    // }
-    // else{
-    //   set_type(type);
-    // }
+    set_type(get_type_name());
 }
 
 void isvoid_class::semant_checker(Symbol cur_class){
@@ -1181,7 +1099,6 @@ void object_class::semant_checker(Symbol cur_class){
 
 
 
-
 /*   This is the entry point to the semantic checker.
 
      Your checker should do the following two things:
@@ -1197,8 +1114,6 @@ void object_class::semant_checker(Symbol cur_class){
  */
 
 
-
-
 void program_class::semant()
 {
     initialize_constants();
@@ -1206,17 +1121,14 @@ void program_class::semant()
     /* ClassTable constructor may do some semantic analysis */
     classtable = new ClassTable(classes);
 
-
     /* some semantic analysis code may go here */
-    if(!classtable->inheritanceErrorCheck()){
+    if(!classtable->hasError() && !classtable->inheritanceErrorCheck()){
         semant_checker();
     }
-
 
     if (classtable->errors()) {
         cerr << "Compilation halted due to static semantic errors." << endl;
         exit(1);
     }
 }
-
 
