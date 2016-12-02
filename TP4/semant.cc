@@ -655,23 +655,24 @@ void formal_class::semant_checker(Symbol cur_class){
 
 void branch_class::semant_checker(Symbol cur_class){
 
-   if(attribute_map->probe(type_decl) != NULL){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
-        << "Duplicate branch " << type_decl
-        << " in case statement." << endl;
-   }
-   else{
-      if(type_decl == SELF_TYPE){
+	if(attribute_map->probe(type_decl) != NULL){
+    	classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
+        	<< "Duplicate branch " << type_decl
+        	<< " in case statement." << endl;
+   	}
+   	if(type_decl == SELF_TYPE){
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
-        << "Identifier " << name
-        << " declared with type SELF_TYPE in case branch." << endl;
-      }
-      else{
-        attribute_map->addid(type_decl, new Symbol(name));  
-      }
-   }
+        	<< "Identifier " << name
+        	<< " declared with type SELF_TYPE in case branch." << endl;
+	}
+	
+	attribute_map->addid(type_decl, &name);
+
    
+   attribute_map->enterscope();
+   attribute_map->addid(name, &type_decl);
    expr->semant_checker(cur_class);
+   attribute_map->exitscope();
 }
 
 
@@ -897,9 +898,7 @@ void typcase_class::semant_checker(Symbol cur_class){
 
 
 void block_class::semant_checker(Symbol cur_class){
-    Symbol expr_type;
-
-    expr_type = No_type;
+    Symbol expr_type = No_type;
 
     for(int i = body->first(); body->more(i); i = body->next(i)){
       body->nth(i)->semant_checker(cur_class);
