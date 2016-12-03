@@ -3,7 +3,8 @@ class C inherits A{
     b : Bool;
     c : SELF_TYPE;
     d : C;
-    init(x : Int, y : Bool, z : SELF_TYPE) : C {
+    x : String;
+    init(x : Int, x: Bool, y : Bool, z : SELF_TYPE, self : String) : C {
         {
             a <- x;
             b <- y;
@@ -11,6 +12,7 @@ class C inherits A{
             a <- self;
             c <- self;
             d <- self;
+            z <- 1;
             self;
         }
     };
@@ -37,8 +39,15 @@ class B inherits A {
 };
 
 class A inherits IO{
-        oi():Int { "1" };       --Error on return type
-        bye():SELF_TYPE {(new SELF_TYPE)};
+        oi():Int {
+            {
+                self.bye(3);
+                "1";
+            }
+        };       --Error on return type
+
+
+        bye(a :SELF_TYPE):SELF_TYPE {(new SELF_TYPE)};
 };
 
 Class Main inherits C{          
@@ -97,23 +106,42 @@ class Y inherits IO {
 
 class Z inherits H {
     v2 : Int;
-    f3(self : Int, arg2 : SELF_TYPE) : Object {{
-        v2 <- v4@B.f2();
+    f3(self : Int, arg2 : SELF_TYPE) : Object {
+        {
+            v2 <- v4@B.f2();
 
-        (new SELF_TYPE).init(2);
-    }
+            (new SELF_TYPE).init(2);
+        }
     };
-    f4() : SELF_TYPE {{
-        case v2 of
-            a : Int => out_string("Int\n");
-            b : String => out_string("String\n");
-            c : Bool => out_string("Bool\n");
-        esac;
-    }};
+    
+    f4() : SELF_TYPE {
+        {
+
+            case v2 of
+                a : Int => out_string("Int\n");
+                b : String => out_string("String\n");
+                c : Bool => out_string("Bool\n");
+            esac;
+        }
+    };
+    
     f5() : Object {
         v4@SELF_TYPE.f2(1)
     };
-    f2(i : Int) : String {out_int(i)};
+
+    f6() : SELF_TYPE {
+            if( 3 <= "2")
+            then    self
+            else    3
+            fi
+    };
+    
+    f2(i : Int) : String {
+        {
+            self.f3(3,5);
+            out_int(i);
+        }
+    };
 
     mymeth(s: String) : String {s.a()};
 };

@@ -324,10 +324,7 @@ void ClassTable::install_basic_classes() {
 Class_ ClassTable::get_Class(Symbol c){
     std::map<Symbol, Class_>::iterator it;
     it = class_map->find(c);
-    if (it == class_map->end())
-        return NULL;
-
-    return it->second;
+    return (it == class_map->end()) ? NULL : it->second;
 }
 
 
@@ -515,8 +512,8 @@ void build_features(Symbol c){
     for(int i = features->first(); features->more(i); i = features->next(i)){
         features->nth(i)->add_feature(c);
         Feature feat = features->nth(i);
-        if(c == Main){
-          is_Main |= (feat->isMethod() && (feat->get_name() == main_meth));
+        if((c == Main) && feat->isMethod() && (feat->get_name() == main_meth)){
+          is_Main = true;
         }
     }
 
@@ -573,11 +570,10 @@ void program_class::semant_checker(){
 void class__class::semant_checker(){
 
    //Create tables and check for method and attribute definition errors
-   build_features(get_name());
+   build_features(name);
 
    for(int i = features->first(); features->more(i); i = features->next(i)){
-      //cerr << i << endl;
-      features->nth(i)->semant_checker(get_name());
+      features->nth(i)->semant_checker(name);
    }
 
    remove_features();
@@ -588,10 +584,10 @@ void class__class::semant_checker(){
 void method_class::semant_checker(Symbol cur_class){
     Symbol expr_type, ret_type;
 
+    attribute_map->enterscope();
+    
     for(int i = formals->first(); formals->more(i); i = formals->next(i))
         formals->nth(i)->semant_checker(cur_class);
-
-    attribute_map->enterscope();
 
     expr->semant_checker(cur_class);
 
@@ -618,7 +614,6 @@ void attr_class::semant_checker(Symbol cur_class){
     
     init->semant_checker(cur_class);
     if(init->get_type() != No_type){
-      //init_type = init->get_type();
       init_type = (init->get_type() == SELF_TYPE) ? cur_class : init->get_type();
       attr_type = (type_decl == SELF_TYPE) ? cur_class : type_decl;
 
@@ -633,46 +628,51 @@ void attr_class::semant_checker(Symbol cur_class){
 
 
 void formal_class::semant_checker(Symbol cur_class){
-    bool error = false;
+
     if (name == self){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
         << "'self' cannot be the name of a formal parameter." << endl;
-      error = true;
     }
-
-    if(type_decl == SELF_TYPE){
-      classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Formal parameter " << name << " cannot have type SELF_TYPE." << endl;
-
-      error = true;
-    }
+    else{
+        if(type_decl == SELF_TYPE){
+          classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+            << "Formal parameter " << name << " cannot have type SELF_TYPE." << endl;
+        }
     
-    if (!error){
-      attribute_map->addid(name,new Symbol(type_decl));
+        if(attribute_map->probe(name) != NULL){
+          classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
+            << "Formal parameter " << name << " is multiply defined."<< endl;
+        }else{
+            attribute_map->addid(name,new Symbol(type_decl));
+        }
+      
     }
+
+
 }
 
 
 void branch_class::semant_checker(Symbol cur_class){
 
-	if(attribute_map->probe(type_decl) != NULL){
-    	classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
-        	<< "Duplicate branch " << type_decl
-        	<< " in case statement." << endl;
-   	}
-   	if(type_decl == SELF_TYPE){
+    if(attribute_map->probe(type_decl) != NULL){
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
-        	<< "Identifier " << name
-        	<< " declared with type SELF_TYPE in case branch." << endl;
-	}
-	
-	attribute_map->addid(type_decl, &name);
+            << "Duplicate branch " << type_decl
+            << " in case statement." << endl;
+    }
+    
+    if(type_decl == SELF_TYPE){
+        classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this) 
+            << "Identifier " << name
+            << " declared with type SELF_TYPE in case branch." << endl;
+    }
+    
+    attribute_map->addid(type_decl, &name);
 
    
-   attribute_map->enterscope();
-   attribute_map->addid(name, &type_decl);
-   expr->semant_checker(cur_class);
-   attribute_map->exitscope();
+    attribute_map->enterscope();
+    attribute_map->addid(name, &type_decl);
+    expr->semant_checker(cur_class);
+    attribute_map->exitscope();
 }
 
 
@@ -717,6 +717,9 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
 
     dispatch_type = Object;
     expr->semant_checker(cur_class);
+
+    //TODO
+    //CHECK FOR SELF
     expr_type = expr->get_type();
     
     
@@ -755,9 +758,15 @@ void static_dispatch_class::semant_checker(Symbol cur_class){
         
                 for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(j)){
                   actual->nth(i)->semant_checker(cur_class);
+                  
+                  //TODO
+                  //check for SELF_TYPE
                   actual_type = actual->nth(i)->get_type();
 
                   formal =  formals->nth(j);
+
+                  //TODO
+                  //check for SELF_TYPE
                   formal_type = formal->get_type_decl();
 
                   if(!type_check(actual_type, formal_type)){
@@ -793,9 +802,8 @@ void dispatch_class::semant_checker(Symbol cur_class){
     dispatch_type = Object;
 
     expr->semant_checker(cur_class);
+    
     expr_type = expr->get_type();
-
-
     type_name = (expr_type == SELF_TYPE) ? cur_class : expr_type;
 
     if ((c = classtable->get_Class(type_name)) == NULL){
@@ -816,9 +824,15 @@ void dispatch_class::semant_checker(Symbol cur_class){
 
             for(i = actual->first(), j = formals->first(); (actual->more(i)) && (formals->more(j)); i = actual->next(i), j = formals->next(j)){
               actual->nth(i)->semant_checker(cur_class);
+
+              //TODO
+              //check for SELF_TYPE
               actual_type = actual->nth(i)->get_type();
 
               formal =  formals->nth(j);
+
+              //TODO
+              //check for SELF_TYPE
               formal_type = formal->get_type_decl();
 
               if(!type_check(actual_type, formal_type)){
@@ -843,6 +857,7 @@ void dispatch_class::semant_checker(Symbol cur_class){
 
 
 void cond_class::semant_checker(Symbol cur_class){
+    Symbol then_type, else_type;
 
     pred->semant_checker(cur_class);
     then_exp->semant_checker(cur_class);
@@ -853,7 +868,10 @@ void cond_class::semant_checker(Symbol cur_class){
         << "Predicate of 'if' does not have type Bool." << endl;
     }
 
-    set_type(join_types(then_exp->get_type(),else_exp->get_type()));
+    then_type = (then_exp->get_type() == SELF_TYPE) ? cur_class : then_exp->get_type();
+    else_type = (else_exp->get_type() == SELF_TYPE) ? cur_class : else_exp->get_type();
+
+    set_type(join_types(then_type,else_type));
 }
 
 void loop_class::semant_checker(Symbol cur_class){
@@ -915,8 +933,10 @@ void let_class::semant_checker(Symbol cur_class){
     init->semant_checker(cur_class);
 
     if(init->get_type() != No_type){
+
       init_type = (init->get_type() == SELF_TYPE) ? cur_class : init->get_type();
       let_type = (type_decl == SELF_TYPE) ? cur_class : type_decl;
+
       if (!type_check(init_type,let_type)){
         classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
           << "Inferred type " << init->get_type() << " of initialization of "
@@ -1024,8 +1044,8 @@ void eq_class::semant_checker(Symbol cur_class){
     e2_type = e2->get_type();
 
 
-    if((e1_type == Int) || (e1_type == Str) || (e1_type == Bool) ||
-        (e2_type == Int) || (e2_type == Str) || (e2_type == Bool)){
+    if( (e1_type == Int) || (e1_type == Str) || (e1_type == Bool) ||
+        (e2_type == Int) || (e2_type == Str) || (e2_type == Bool) ){
 
       if (e1_type != e2_type){
           classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
@@ -1048,12 +1068,11 @@ void leq_class::semant_checker(Symbol cur_class){
 }
 
 void comp_class::semant_checker(Symbol cur_class){
-   
     e1->semant_checker(cur_class);
+
     if(e1->get_type() != Bool){
       classtable->semant_error(classtable->get_Class(cur_class)->get_filename(),this)
-        << "Argument of 'not' has type "
-        << e1->get_type() << " instead of Bool." << endl;
+        << "Argument of 'not' has type " << e1->get_type() << " instead of Bool." << endl;
     }
     set_type(Bool);
 }
@@ -1071,7 +1090,7 @@ void string_const_class::semant_checker(Symbol cur_class){
 }
 
 void new__class::semant_checker(Symbol cur_class){
-    set_type(get_type_name());
+    set_type(type_name);
 }
 
 void isvoid_class::semant_checker(Symbol cur_class){
