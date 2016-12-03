@@ -138,7 +138,7 @@ class Z inherits H {
     
     f2(i : Int) : String {
         {
-            self.f3(3,5);
+            self.f3(self,5);
             out_int(i);
         }
     };
