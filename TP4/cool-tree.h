@@ -81,7 +81,7 @@ public:
    virtual Formal copy_Formal() = 0;
 
    virtual Symbol get_name() = 0;
-   virtual Symbol get_type_decl() = 0;
+   virtual Symbol get_type() = 0;
 
    virtual void semant_checker(Symbol) = 0;
 
@@ -292,7 +292,7 @@ public:
    void dump(ostream& stream, int n);
 
    Symbol get_name() { return name; }
-   Symbol get_type_decl() { return type_decl; }
+   Symbol get_type() { return type_decl; }
 
    void semant_checker(Symbol);
 
