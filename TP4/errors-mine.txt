@@ -1,0 +1,69 @@
+bad.cl:103: 'self' cannot be the name of an attribute.
+bad.cl:104: Formal parameter arg1 cannot have type SELF_TYPE.
+bad.cl:105: 'self' cannot be bound in a 'let' expression.
+bad.cl:112: 'self' cannot be the name of a formal parameter.
+bad.cl:112: Formal parameter arg2 cannot have type SELF_TYPE.
+bad.cl:114: Expression type A does not conform to declared static dispatch type B.
+bad.cl:114: Type Object of assigned expression does not conform to declared type Int of identifier v2.
+bad.cl:120: Inferred return type SELF_TYPE of method f4 does not conform to declared return type Int.
+bad.cl:123: Method out_string called with wrong number of arguments.
+bad.cl:12: Loop condition does not have type Bool.
+bad.cl:132: Static dispatch to SELF_TYPE.
+bad.cl:135: Inferred return type Object of method f6 does not conform to declared return type SELF_TYPE.
+bad.cl:136: non-Int arguments on  '<=' expression.
+bad.cl:13: Type SELF_TYPE of assigned expression does not conform to declared type Int of identifier a.
+bad.cl:142: Inferred return type Object of method f6 does not conform to declared return type SELF_TYPE.
+bad.cl:142: Method f6 is multiply defined.
+bad.cl:143: non-Int arguments on  '<=' expression.
+bad.cl:149: In redefined method f2, return type String is different from original return type Object.
+bad.cl:149: Inferred return type SELF_TYPE of method f2 does not conform to declared return type String.
+bad.cl:151: 'new' used with undefined class F.
+bad.cl:152: In call of method f3, type Int of parameter arg2 does not conform to declared type SELF_TYPE.
+bad.cl:152: In call of method f3, type SELF_TYPE of parameter self does not conform to declared type Int.
+bad.cl:157: Dispatch to undefined method a.
+bad.cl:157: Inferred return type Object of method mymeth does not conform to declared return type String.
+bad.cl:16: Type Int of assigned expression does not conform to declared type SELF_TYPE of identifier z.
+bad.cl:171: Attribute v3 is an attribute of an inherited class.
+bad.cl:173: In redefined method f5, return type Int is different from original return type Object.
+bad.cl:177: Method f4 invoked with wrong number of arguments.
+bad.cl:178: Static dispatch to SELF_TYPE.
+bad.cl:17: Dispatch on undefined class O.
+bad.cl:25: Attribute var is multiply defined in class.
+bad.cl:27: non-Int arguments on arithmetic expression.
+bad.cl:28: Inferred type Bool of initialization of attribute d does not conform to declared type Int.
+bad.cl:29: Inferred return type Object of method try does not conform to declared return type String.
+bad.cl:34: 'self' bound in 'case'.
+bad.cl:34: Duplicate branch Int in case statement.
+bad.cl:35: Identifier e declared with type SELF_TYPE in case branch.
+bad.cl:38: Method try is multiply defined.
+bad.cl:44: Inferred return type String of method oi does not conform to declared return type Int.
+bad.cl:46: In call of method bye, type Int of parameter a does not conform to declared type SELF_TYPE.
+bad.cl:52: Formal parameter a cannot have type SELF_TYPE.
+bad.cl:55: No 'main' method in class Main.
+bad.cl:56: Attribute a is an attribute of an inherited class.
+bad.cl:57: Attribute b is an attribute of an inherited class.
+bad.cl:59: Inferred return type Int of method notmain does not conform to declared return type C.
+bad.cl:60: Illegal comparison with a basic type.
+bad.cl:65: Predicate of 'if' does not have type Bool.
+bad.cl:70: Type Int of assigned expression does not conform to declared type C of identifier d.
+bad.cl:71: non-Int arguments on arithmetic expression.
+bad.cl:73: Argument of '~' has type String instead of Int.
+bad.cl:76: Inferred type Bool of initialization of x does not conform to identifier's declared type Int.
+bad.cl:7: Class O of attribute f is undefined.
+bad.cl:82: non-Int arguments on '<' expression.
+bad.cl:83: Argument of 'not' has type Int instead of Bool.
+bad.cl:84: Type Object of assigned expression does not conform to declared type Bool of identifier b.
+bad.cl:84: Type Object of assigned expression does not conform to declared type Int of identifier a.
+bad.cl:84: Undeclared identifier g.
+bad.cl:8: 'self' cannot be the name of a formal parameter.
+bad.cl:8: Formal parameter x is multiply defined.
+bad.cl:8: Formal parameter z cannot have type SELF_TYPE.
+bad.cl:90: In redefined method init, parameter type Bool is different from original type Int.
+bad.cl:90: Incompatible number of formal parameters in redefined method init.
+bad.cl:95: 'self' cannot be the name of an attribute.
+bad.cl:95: Inferred type String of initialization of attribute self does not conform to declared type Int.
+bad.cl:96: Inferred type Int of initialization of attribute v1 does not conform to declared type SELF_TYPE.
+bad.cl:97: Inferred return type Object of method main does not conform to declared return type Int.
+bad.cl:98: Dispatch to undefined method f4.
+bad.cl:98: Undeclared identifier v3.
+Compilation halted due to static semantic errors.
