@@ -27,6 +27,7 @@ private:
 
 
    void set_tags();
+   int get_tag(Symbol);
 // The following methods emit code for
 // constants and global declarations.
 
@@ -39,9 +40,16 @@ private:
    void code_disp_table(CgenNodeP, Features past_feats, ostream&);
    void code_disp_tables();
 
-   bool is_class(Symbol);
    void code_class_nameTab();
+   void code_class_objTab();
 
+
+   void code_attributes( CgenNodeP, ostream& );
+   void code_proto_object_def( CgenNodeP, ostream&);
+   void code_proto_objects();
+
+
+   void code_initializers();
 // The following creates an inheritance graph from
 // a list of classes.  The graph is implemented as
 // a tree of `CgenNode', and class names are placed
