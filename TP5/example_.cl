@@ -4,6 +4,7 @@
  *)
 
 class A {
+  b:Bool;
   s : String <- "Hello";
   a():Int { 1} ;
 };

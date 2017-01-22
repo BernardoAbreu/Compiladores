@@ -24,6 +24,7 @@
 
 #include "cgen.h"
 #include "cgen_gc.h"
+#include <sstream>
 
 extern void emit_string_constant(ostream& str, char *s);
 extern int cgen_debug;
@@ -1005,25 +1006,59 @@ void CgenClassTable::code_proto_objects(){
 
 
 
-void code_initializer(CgenNodeP nd, ostream& s){
 
+void code_attr( CgenNodeP nd, ostream& s){
+    Symbol class_name = nd->get_name();
+
+
+    Features feats = nd->features;
+    int offset = DEFAULT_OBJFIELDS + get_attr_size(nd->get_parentnd());
+    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      cout << feat->get_name()<<endl;
+      if(!feat->is_method()){
+          
+          feat->code(offset++,s);
+      }
+  }
+}
+
+void method_class::code(int offset, ostream &s) {
+    s << endl;
+}
+
+void attr_class::code(int offset, ostream &s) {
+    init->code(s);
+    cout <<offset<<endl;
+    if(!init->is_noexpr()){
+      emit_store(ACC, offset, SELF, s);
+    }
+}
+
+
+void code_initializer(CgenNodeP nd, ostream& s){
+  Symbol class_name = nd->get_name();
   emit_addiu(SP, SP, -12, s);
-  emit_store(FP, 12, SP, s);
-  emit_store(SELF, 8, SP, s);
-  emit_store(RA, 4, SP, s);
+  emit_store(FP, 3, SP, s);
+  emit_store(SELF, 2, SP, s);
+  emit_store(RA, 1, SP, s);
   emit_addiu(FP, SP, 4, s);
   emit_move(SELF, ACC,s);
 
-  if (nd->get_name() != Object){
-    ////////////////////////
-    //TODO
-    emit_jal("Object_init",s);
+  if (class_name != Object){
+    std::stringstream ss;
+    emit_init_ref(nd->get_parent(),ss);
+    emit_jal((char*)(ss.str().c_str()),s);
+
   }
-  
+  code_attr(nd,s);
+
+
+
   emit_move(ACC, SELF,s);
-  emit_load(FP, 12, SP,s);
-  emit_load(SELF, 8, SP,s);
-  emit_load(RA, 4, SP,s);
+  emit_load(FP, 3, SP,s);
+  emit_load(SELF, 2, SP,s);
+  emit_load(RA, 1, SP,s);
   emit_addiu(SP, SP, 12, s);
   emit_return(s);
 }
@@ -1115,6 +1150,8 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //*****************************************************************
 
 void assign_class::code(ostream &s) {
+  expr->code(s);
+  cout << "hello" << endl;
 }
 
 void static_dispatch_class::code(ostream &s) {
@@ -1184,6 +1221,18 @@ void bool_const_class::code(ostream& s)
 }
 
 void new__class::code(ostream &s) {
+
+    std::stringstream ss;
+    
+    emit_protobj_ref(type_name, ss);
+    emit_load_address(ACC,(char*)(ss.str().c_str()),s);
+
+    ss.str(std::string());
+    emit_jal("Object.copy",s);
+
+    emit_init_ref(type_name,ss);
+    emit_jal((char*)(ss.str().c_str()),s);
+
 }
 
 void isvoid_class::code(ostream &s) {
@@ -1193,6 +1242,10 @@ void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
+  // la  $a0 A_protObj
+  // jal Object.copy
+  
+
 }
 
 

@@ -55,6 +55,7 @@ public:
    virtual Symbol get_name() = 0;
    virtual Symbol get_type() = 0;
    virtual Expression get_expr() = 0;
+   virtual void code(int, ostream&) = 0;
 //////////////////////////////////////////////
 
 
@@ -198,6 +199,7 @@ public:
    Symbol get_name()   { return name; }
    Symbol get_type()   { return return_type; }
    Expression get_expr()   { return expr; }
+   void code(int, ostream&);
    /////////////////////////////////////
    Feature copy_Feature();
    void dump(ostream& stream, int n);
@@ -228,6 +230,7 @@ public:
    Symbol get_name()   { return name; }
    Symbol get_type()   { return type_decl; }
    Expression get_expr()   { return init; }
+   void code(int, ostream&);
    /////////////////////////////////////
    Feature copy_Feature();
    void dump(ostream& stream, int n);
