@@ -323,6 +323,12 @@ static void emit_push(char *reg, ostream& str)
   emit_addiu(SP,SP,-4,str);
 }
 
+static void emit_pop(char *reg, ostream& str)
+{
+  emit_addiu(SP,SP,4,str);
+  emit_load(reg,0,SP,str);
+}
+
 //
 // Fetch the integer value in an Int object.
 // Emits code to fetch the integer value of the Integer object pointed
@@ -354,6 +360,15 @@ static void emit_gc_check(char *source, ostream &s)
   if (source != A1) emit_move(A1, source, s);
   s << JAL << "_gc_check" << endl;
 }
+
+
+
+// My emit functions
+///////////////////////////////////////////////////////////
+static void emit_jal_init(Symbol sym,ostream &s)
+{ s << JAL; emit_init_ref(sym, s); s<< endl; }
+///////////////////////////////////////////////////////////
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -624,6 +639,7 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    intclasstag =    2 /* Change to your Int class tag here */;
    boolclasstag =   3 /* Change to your Bool class tag here */;
 
+   label_index = -1;
    enterscope();
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
    install_basic_classes();
@@ -849,7 +865,7 @@ bool is_lowest_method(Features feats, Symbol method_name){
 }
 
 
-void CgenClassTable::code_disp_table(CgenNodeP nd, Features past_feats, ostream& s){
+void code_disp_table(CgenNodeP nd, Features past_feats, ostream& s){
     Symbol class_name = nd->get_name();
     if( class_name == No_class)
       return;
@@ -925,12 +941,55 @@ void CgenClassTable::code_class_objTab(){
 }
 
 
-void CgenClassTable::code_attributes( CgenNodeP nd, ostream& s){
+
+int get_attr_size(CgenNodeP nd){
+
+   Symbol class_name = nd->get_name();
+    if( class_name == No_class)
+      return 0;
+
+    int attr_n = 0;
+
+    Features feats = nd->features;
+
+    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      if(!feat->is_method()){
+        attr_n++;
+      }
+    }
+
+    return attr_n + get_attr_size(nd->get_parentnd());
+}
+
+
+int get_meth_size(CgenNodeP nd){
+
+   Symbol class_name = nd->get_name();
+    if( class_name == No_class)
+      return 0;
+
+    int meth_n = 0;
+
+    Features feats = nd->features;
+
+    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      if(feat->is_method()){
+        meth_n++;
+      }
+    }
+
+    return meth_n + get_meth_size(nd->get_parentnd());
+}
+
+
+void code_proto_attributes( CgenNodeP nd, ostream& s){
     Symbol class_name = nd->get_name();
     if( class_name == No_class)
       return;
 
-    code_attributes(nd->get_parentnd(), s);
+    code_proto_attributes(nd->get_parentnd(), s);
 
     Features feats = nd->features;
 
@@ -959,27 +1018,6 @@ void CgenClassTable::code_attributes( CgenNodeP nd, ostream& s){
 }
 
 
-int get_attr_size(CgenNodeP nd){
-
-   Symbol class_name = nd->get_name();
-    if( class_name == No_class)
-      return 0;
-
-    int attr_n = 0;
-
-    Features feats = nd->features;
-
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      if(!feat->is_method()){
-        attr_n++;
-      }
-    }
-
-    return attr_n + get_attr_size(nd->get_parentnd());
-}
-
-
 void CgenClassTable::code_proto_object_def( CgenNodeP nd, ostream& s){
 
     // Add -1 eye catcher
@@ -994,7 +1032,7 @@ void CgenClassTable::code_proto_object_def( CgenNodeP nd, ostream& s){
 
         emit_disptable_ref(obj_name,s);  s << endl;                 // dispatch table
 
-        code_attributes(nd,s);
+        code_proto_attributes(nd,s);
 }
 
 
@@ -1007,29 +1045,8 @@ void CgenClassTable::code_proto_objects(){
 
 
 
-void code_attr( CgenNodeP nd, ostream& s){
-    Symbol class_name = nd->get_name();
-
-
-    Features feats = nd->features;
-    int offset = DEFAULT_OBJFIELDS + get_attr_size(nd->get_parentnd());
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      cout << feat->get_name()<<endl;
-      if(!feat->is_method()){
-          
-          feat->code(offset++,s);
-      }
-  }
-}
-
-void method_class::code(int offset, ostream &s) {
-    s << endl;
-}
-
 void attr_class::code(int offset, ostream &s) {
     init->code(s);
-    cout <<offset<<endl;
     if(!init->is_noexpr()){
       emit_store(ACC, offset, SELF, s);
     }
@@ -1037,7 +1054,6 @@ void attr_class::code(int offset, ostream &s) {
 
 
 void code_initializer(CgenNodeP nd, ostream& s){
-  Symbol class_name = nd->get_name();
   emit_addiu(SP, SP, -12, s);
   emit_store(FP, 3, SP, s);
   emit_store(SELF, 2, SP, s);
@@ -1045,14 +1061,20 @@ void code_initializer(CgenNodeP nd, ostream& s){
   emit_addiu(FP, SP, 4, s);
   emit_move(SELF, ACC,s);
 
-  if (class_name != Object){
-    std::stringstream ss;
-    emit_init_ref(nd->get_parent(),ss);
-    emit_jal((char*)(ss.str().c_str()),s);
-
+  if (nd->get_name() != Object){
+    emit_jal_init(nd->get_parent(),s);
   }
-  code_attr(nd,s);
 
+  Features feats = nd->features;
+
+  int offset = DEFAULT_OBJFIELDS + get_attr_size(nd->get_parentnd());
+
+  for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      if(!feat->is_method()){
+          feat->code(offset++,s);
+      }
+  }
 
 
   emit_move(ACC, SELF,s);
@@ -1066,11 +1088,66 @@ void code_initializer(CgenNodeP nd, ostream& s){
 
 void CgenClassTable::code_initializers(){
     for(List<CgenNode> *l = nds; l; l = l->tl()){
-      emit_init_ref(l->hd()->get_name(),cout);
-      cout << LABEL;
-      code_initializer(l->hd(), cout);
+      emit_init_ref(l->hd()->get_name(),str);
+      str << LABEL;
+      code_initializer(l->hd(), str);
     }
 }
+
+
+
+
+void method_class::code(int offset, ostream &s) {
+    emit_addiu(SP, SP, -12, s);
+    emit_store(FP, 3, SP, s);
+    emit_store(SELF, 2, SP, s);
+    emit_store(RA, 1, SP, s);
+    emit_addiu(FP, SP, 4, s);
+    emit_move(SELF, ACC,s);
+
+
+    expr->code(s);
+
+
+    emit_load(FP, 3, SP,s);
+    emit_load(SELF, 2, SP,s);
+    emit_load(RA, 1, SP,s);
+    emit_addiu(SP, SP, 12, s);
+    emit_return(s);
+}
+
+
+void CgenClassTable::code_methods(){
+
+    for(List<CgenNode> *l = nds; l; l = l->tl()){
+        CgenNodeP nd = l->hd();
+        
+        if(!nd->basic()){
+          Features feats = nd->features;
+          int offset = get_meth_size(nd->get_parentnd());
+
+          for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+              Feature feat = feats->nth(i);
+              if(feat->is_method()){
+                  emit_method_ref(nd->get_name(), feat->get_name(), str); str << LABEL;
+                      feat->code(offset++,str);
+              }
+          }  
+        }
+    }
+
+}
+
+
+
+
+int get_label(){
+  return label_index;
+}
+int set_label(){
+  return ++label_index;
+}
+
 
 
 void CgenClassTable::code()
@@ -1114,6 +1191,9 @@ void CgenClassTable::code()
 
   if (cgen_debug) cout << "coding initializers" << endl;
   code_initializers();
+
+  if (cgen_debug) cout << "coding methods" << endl;
+  code_methods();
 }
 
 
@@ -1139,6 +1219,7 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 }
 
 
+
 //******************************************************************
 //
 //   Fill in the following methods to produce code for the
@@ -1151,55 +1232,176 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 
 void assign_class::code(ostream &s) {
   expr->code(s);
-  cout << "hello" << endl;
+  cout << "assign" << endl;
 }
 
 void static_dispatch_class::code(ostream &s) {
+  s << "static_dispatch" << endl;
 }
 
 void dispatch_class::code(ostream &s) {
+  s << "dispatch" << endl;
 }
 
 void cond_class::code(ostream &s) {
+  s << "Cond" << endl;
 }
 
 void loop_class::code(ostream &s) {
+  s << "loop" << endl;
 }
 
 void typcase_class::code(ostream &s) {
+  s << "typcase" << endl;
 }
 
 void block_class::code(ostream &s) {
+  for(int i = body->first(); body->more(i); i = body->next(i)){
+      body->nth(i)->code(s);
+  }
 }
 
 void let_class::code(ostream &s) {
+  s << "let" << endl;
 }
 
 void plus_class::code(ostream &s) {
+  s << "# Start of plus" << endl;
+  e1->code(s);
+  emit_push(ACC,s);                           //Saves first int object
+  e2->code(s);
+  emit_jal("Object.copy",s);                  //Allocates new object on heap and stores its address on acc
+  emit_pop(T1,s);                             //Puts first int object on temporary register
+
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s);    //Gets attribute val of int object
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s);   //Gets attribute val of int object
+  emit_add(T1,T1,T2,s);                       //Adds values
+  
+  emit_store(T1, DEFAULT_OBJFIELDS, ACC, s);  //Store result on allocated object
+  s << "# End of plus" << endl;
+  
 }
 
 void sub_class::code(ostream &s) {
+  s << "# Start of sub" << endl;
+  e1->code(s);
+  emit_push(ACC,s);                           //Saves first int object
+  e2->code(s);
+  emit_jal("Object.copy",s);                  //Allocates new object on heap and stores its address on acc
+  emit_pop(T1,s);                             //Puts first int object on temporary register
+
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s);    //Gets attribute val of int object
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s);   //Gets attribute val of int object
+  emit_sub(T1,T1,T2,s);                       //Adds values
+  
+  emit_store(T1, DEFAULT_OBJFIELDS, ACC, s);  //Store result on allocated object
+  
+  s << "# End of sub" << endl;
 }
 
 void mul_class::code(ostream &s) {
+  s << "# Start of mul" << endl;
+  e1->code(s);
+  emit_push(ACC,s);                           //Saves first int object
+  e2->code(s);
+  emit_jal("Object.copy",s);                  //Allocates new object on heap and stores its address on acc
+  emit_pop(T1,s);                             //Puts first int object on temporary register
+
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s);    //Gets attribute val of int object
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s);   //Gets attribute val of int object
+  emit_mul(T1,T1,T2,s);                       //Adds values
+  
+  emit_store(T1, DEFAULT_OBJFIELDS, ACC, s);  //Store result on allocated object
+  
+  s << "# End of mul" << endl;
 }
 
 void divide_class::code(ostream &s) {
+  s << "# Start of div" << endl;
+  e1->code(s);
+  emit_push(ACC,s);                           //Saves first int object
+  e2->code(s);
+  emit_jal("Object.copy",s);                  //Allocates new object on heap and stores its address on acc
+  emit_pop(T1,s);                             //Puts first int object on temporary register
+
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s);    //Gets attribute val of int object
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s);   //Gets attribute val of int object
+  emit_div(T1,T1,T2,s);                       //Adds values
+  
+  emit_store(T1, DEFAULT_OBJFIELDS, ACC, s);  //Store result on allocated object
+  
+  s << "# End of div" << endl;
 }
 
 void neg_class::code(ostream &s) {
+  s << "# Start of neg" << endl;
+  
+  e1->code(s);
+  emit_jal("Object.copy",s);                  //Allocates new object on heap and stores its address on acc
+  
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s);   //Gets attribute val of int object
+  emit_neg(T1,T1,s);                          //Negates value
+  
+  emit_store(T1, DEFAULT_OBJFIELDS, ACC, s);  //Store result on allocated object
+  
+  s << "# End of neg" << endl;
 }
 
 void lt_class::code(ostream &s) {
+  s << "# Start of lt" << endl;
+  e1->code(s);
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of first Int obj
+  e2->code(s);
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
+  emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
+  emit_blt(T1, T2, set_label(), s);         //Checks if first value is < than seconf
+  emit_load_bool(ACC,BoolConst(0), s);      //If value was not < sets False as complement
+  emit_label_def(get_label(), s);
+  s << "# End of lt" << endl;
 }
 
 void eq_class::code(ostream &s) {
+  s << "# Start of eq" << endl;
+  e1->code(s);
+  emit_move(T1, ACC, s);                    //Get value of first obj
+  e2->code(s);
+  emit_move(T2, ACC, s);                    //Get value of second obj
+  
+  emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
+
+  emit_beq(T1, T2, set_label(), s);         //Check if both objects are the same (same address)
+
+  emit_load_bool(A1,BoolConst(0), s);       //If objects are not the same prepare false result
+  emit_jal("equality_test", s);             //Calls function equality_test
+  emit_label_def(get_label(), s);
+  s << "# End of eq" << endl;
 }
 
 void leq_class::code(ostream &s) {
+  s << "# Start of leq" << endl;
+  e1->code(s);
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of first Int obj
+  e2->code(s);
+  emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
+  emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
+  emit_bleq(T1, T2, set_label(), s);        //Checks if first value is <= than seconf
+  emit_load_bool(ACC,BoolConst(0), s);      //If value was not <= sets False as complement
+  emit_label_def(get_label(), s);
+  s << "# End of leq" << endl;
 }
 
 void comp_class::code(ostream &s) {
+  s << "# Start of not" << endl;
+  e1->code(s);
+  
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of Bool objs
+  emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the complement
+  emit_beqz(T1, set_label(), s);            //Checks if value is zero
+  emit_load_bool(ACC,BoolConst(0), s);      //If value was not zero sets False as complement
+  emit_label_def(get_label(), s);
+
+
+  s << "# End of not" << endl;  
 }
 
 void int_const_class::code(ostream& s)  
@@ -1221,30 +1423,48 @@ void bool_const_class::code(ostream& s)
 }
 
 void new__class::code(ostream &s) {
+  s << "# Start of new" << endl;
+  if (type_name == SELF_TYPE){
+      emit_load_address(T1, CLASSOBJTAB, s);  //Get adress of ObjTab
+      emit_load(T2, 0, SELF, s);              //Get class tag
+      emit_sll(T2, T2, 3, s);                 //Get relative location of class protoObj from the start of ObjTab (tag*8)
+      emit_addu(T1, T1, T2, s);               //Get location of protoObj
+      emit_push(T1,s);                        //Store location of protoObj
+      emit_load(ACC,0,T1,s);                  //Puts location of protoObj on accumulator
+      emit_jal("Object.copy",s);              //Allocates new object on heap     
+      emit_pop(T1,s);                         //Retrives location of protoObj
+      emit_addiu(T1, T1, 4, s);               //Gets location of init (Following position to protoObj on ObjTab)
+      emit_jalr(T1, s);                       //Jumps to class init
+  }
+  else{
+    emit_partial_load_address(ACC,s);
+    emit_protobj_ref(type_name, s);
+    s << endl;
 
-    std::stringstream ss;
-    
-    emit_protobj_ref(type_name, ss);
-    emit_load_address(ACC,(char*)(ss.str().c_str()),s);
-
-    ss.str(std::string());
     emit_jal("Object.copy",s);
 
-    emit_init_ref(type_name,ss);
-    emit_jal((char*)(ss.str().c_str()),s);
+    emit_jal_init(type_name,s);
+  }
+  s << "# End of new" << endl;
 
 }
 
 void isvoid_class::code(ostream &s) {
+  s << "# Start of isvoid" << endl;
+  e1->code(s);
+  emit_move(T1, ACC, s);                  //Saves value of expression
+  emit_load_bool(ACC,BoolConst(1), s);    //Sets True as answer
+  emit_beqz(ACC, set_label(), s);         //Checks if object is 0 (void)
+  emit_load_bool(ACC,BoolConst(0), s);    //If object is not void sets False as answer 
+  emit_label_def(get_label(), s);
+  s << "# End of isvoid" << endl;
 }
 
 void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
-  // la  $a0 A_protObj
-  // jal Object.copy
-  
+  s << "object" << endl;
 
 }
 

@@ -22,12 +22,15 @@ private:
    int intclasstag;
    int boolclasstag;
 
+///////////////////////////////////
    int number_of_classes;
    Symbol *tags;
 
-
    void set_tags();
    int get_tag(Symbol);
+///////////////////////////////////
+
+
 // The following methods emit code for
 // constants and global declarations.
 
@@ -37,19 +40,22 @@ private:
    void code_select_gc();
    void code_constants();
 
-   void code_disp_table(CgenNodeP, Features past_feats, ostream&);
+   
    void code_disp_tables();
 
    void code_class_nameTab();
+
    void code_class_objTab();
-
-
-   void code_attributes( CgenNodeP, ostream& );
-   void code_proto_object_def( CgenNodeP, ostream&);
+   
+   void code_proto_object_def(CgenNodeP, ostream&);
    void code_proto_objects();
 
-
    void code_initializers();
+
+   void code_methods();
+
+
+
 // The following creates an inheritance graph from
 // a list of classes.  The graph is implemented as
 // a tree of `CgenNode', and class names are placed
@@ -64,6 +70,7 @@ public:
    CgenClassTable(Classes, ostream& str);
    void code();
    CgenNodeP root();
+
 };
 
 
@@ -96,3 +103,8 @@ class BoolConst
   void code_ref(ostream&) const;
 };
 
+SymbolTable<Symbol, std::pair<int,char*> > *attribute_map;
+
+int label_index;
+int get_label();
+int set_label();

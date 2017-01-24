@@ -337,15 +337,30 @@ IO_init:
 	addiu	$sp $sp 12
 	jr	$ra	
 Main.main:
-	addiu	$sp $sp -12
-	sw	$fp 12($sp)
-	sw	$s0 8($sp)
-	sw	$ra 4($sp)
+	addiu	$sp $sp -16
+	sw	$fp 16($sp)
+	sw	$s0 12($sp)
+	sw	$ra 8($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-	la	$a0 int_const0
-	lw	$fp 12($sp)
-	lw	$s0 8($sp)
-	lw	$ra 4($sp)
-	addiu	$sp $sp 12
+	sw	$s1 0($fp)
+	la	$a0 Main_protObj
+	jal	Object.copy
+	jal	Main_init
+	move	$s1 $a0
+	la	$a0 Main_protObj
+	jal	Object.copy
+	jal	Main_init
+	move	$t1 $s1
+	move	$t2 $a0
+	la	$a0 bool_const1
+	beq	$t1 $t2 label0
+	la	$a1 bool_const0
+	jal	equality_test
+label0:
+	lw	$s1 0($fp)
+	lw	$fp 16($sp)
+	lw	$s0 12($sp)
+	lw	$ra 8($sp)
+	addiu	$sp $sp 16
 	jr	$ra	
