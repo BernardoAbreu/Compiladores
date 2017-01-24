@@ -38,7 +38,10 @@ class Main {
     --1<2;
     --5<=3;
     --1 = 1;
-    (new Main) = (new Main);
+    --(new Main) = (new Main);
+    while true loop
+    5
+    pool;
     } 
   };
   

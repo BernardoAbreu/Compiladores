@@ -1248,7 +1248,25 @@ void cond_class::code(ostream &s) {
 }
 
 void loop_class::code(ostream &s) {
-  s << "loop" << endl;
+  s << "# Start of loop" << endl;
+  
+  int loop_label = set_label();
+
+  emit_label_def(loop_label,s);
+
+  pred->code(s);
+
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of Bool objs
+
+  emit_beqz(T1, set_label(), s);            //Checks if value is zero
+  
+  body->code(s);
+
+  emit_branch(loop_label, s);
+
+  emit_label_def(get_label(), s);
+  emit_move(ACC,ZERO,s);
+  s << "# End of loop" << endl;
 }
 
 void typcase_class::code(ostream &s) {
