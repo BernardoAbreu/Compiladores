@@ -39,9 +39,10 @@ class Main {
     --5<=3;
     --1 = 1;
     --(new Main) = (new Main);
-    while true loop
-    5
-    pool;
+    -- while true loop
+    -- 5
+    -- pool;
+    if true then 1 else 0 fi;
     } 
   };
   

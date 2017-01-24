@@ -151,7 +151,7 @@ int_const0:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	5
+	.word	1
 	.word	-1
 bool_const0:
 	.word	3
@@ -349,14 +349,14 @@ Main.main:
 	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-label0:
 	la	$a0 bool_const1
 	lw	$t1 12($a0)
-	beq	$t1 $zero label1
+	beqz	$t1 label0
 	la	$a0 int_const0
-	b	label0
+	b	label1
+label0:
+	la	$a0 int_const1
 label1:
-	move	$a0 $zero
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
 	lw	$ra 4($sp)

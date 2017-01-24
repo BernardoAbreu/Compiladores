@@ -639,7 +639,7 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    intclasstag =    2 /* Change to your Int class tag here */;
    boolclasstag =   3 /* Change to your Bool class tag here */;
 
-   label_index = -1;
+   label_index = 0;
    enterscope();
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
    install_basic_classes();
@@ -1141,11 +1141,8 @@ void CgenClassTable::code_methods(){
 
 
 
-int get_label(){
-  return label_index;
-}
-int set_label(){
-  return ++label_index;
+int set_new_label(){
+  return label_index++;
 }
 
 
@@ -1232,7 +1229,7 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 
 void assign_class::code(ostream &s) {
   expr->code(s);
-  cout << "assign" << endl;
+  s << "assign" << endl;
 }
 
 void static_dispatch_class::code(ostream &s) {
@@ -1244,13 +1241,33 @@ void dispatch_class::code(ostream &s) {
 }
 
 void cond_class::code(ostream &s) {
-  s << "Cond" << endl;
+  int else_label, end_label;
+  s << "# Start of condition" << endl;
+
+  pred->code(s);
+
+  else_label = set_new_label();
+
+  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of Bool obj predicate
+  emit_beqz(T1, else_label, s);             //Checks if value is zero
+
+  then_exp->code(s);                        //Generates then branch
+
+  end_label = set_new_label();
+  emit_branch(end_label,s);                 //Goes to end
+
+  emit_label_def(else_label, s);
+  else_exp->code(s);                        //Generates else branch
+  emit_label_def(end_label, s);
+
+  s << "# End of condition" << endl;
 }
 
 void loop_class::code(ostream &s) {
+  int loop_label, end_label;
   s << "# Start of loop" << endl;
   
-  int loop_label = set_label();
+  loop_label = set_new_label();
 
   emit_label_def(loop_label,s);
 
@@ -1258,13 +1275,14 @@ void loop_class::code(ostream &s) {
 
   emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of Bool objs
 
-  emit_beqz(T1, set_label(), s);            //Checks if value is zero
+  end_label = set_new_label();
+  emit_beqz(T1, end_label, s);              //Checks if value is zero
   
   body->code(s);
 
   emit_branch(loop_label, s);
 
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
   emit_move(ACC,ZERO,s);
   s << "# End of loop" << endl;
 }
@@ -1372,26 +1390,29 @@ void lt_class::code(ostream &s) {
   e2->code(s);
   emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
-  emit_blt(T1, T2, set_label(), s);         //Checks if first value is < than seconf
+
+  int end_label = set_new_label();
+  emit_blt(T1, T2, end_label, s);           //Checks if first value is < than seconf
   emit_load_bool(ACC,BoolConst(0), s);      //If value was not < sets False as complement
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
   s << "# End of lt" << endl;
 }
 
 void eq_class::code(ostream &s) {
   s << "# Start of eq" << endl;
   e1->code(s);
-  emit_move(T1, ACC, s);                    //Get value of first obj
+  emit_move(T1, ACC, s);                    //Get first obj
   e2->code(s);
-  emit_move(T2, ACC, s);                    //Get value of second obj
+  emit_move(T2, ACC, s);                    //Get second obj
   
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
 
-  emit_beq(T1, T2, set_label(), s);         //Check if both objects are the same (same address)
+  int end_label = set_new_label();
+  emit_beq(T1, T2, end_label, s);           //Check if both objects are the same (same address)
 
   emit_load_bool(A1,BoolConst(0), s);       //If objects are not the same prepare false result
   emit_jal("equality_test", s);             //Calls function equality_test
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
   s << "# End of eq" << endl;
 }
 
@@ -1402,9 +1423,11 @@ void leq_class::code(ostream &s) {
   e2->code(s);
   emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
-  emit_bleq(T1, T2, set_label(), s);        //Checks if first value is <= than seconf
+
+  int end_label = set_new_label();
+  emit_bleq(T1, T2, end_label, s);          //Checks if first value is <= than seconf
   emit_load_bool(ACC,BoolConst(0), s);      //If value was not <= sets False as complement
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
   s << "# End of leq" << endl;
 }
 
@@ -1414,9 +1437,11 @@ void comp_class::code(ostream &s) {
   
   emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of Bool objs
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the complement
-  emit_beqz(T1, set_label(), s);            //Checks if value is zero
+
+  int end_label = set_new_label();
+  emit_beqz(T1, end_label, s);              //Checks if value is zero
   emit_load_bool(ACC,BoolConst(0), s);      //If value was not zero sets False as complement
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
 
 
   s << "# End of not" << endl;  
@@ -1472,9 +1497,11 @@ void isvoid_class::code(ostream &s) {
   e1->code(s);
   emit_move(T1, ACC, s);                  //Saves value of expression
   emit_load_bool(ACC,BoolConst(1), s);    //Sets True as answer
-  emit_beqz(ACC, set_label(), s);         //Checks if object is 0 (void)
+
+  int end_label = set_new_label();
+  emit_beqz(ACC, end_label, s);           //Checks if object is 0 (void)
   emit_load_bool(ACC,BoolConst(0), s);    //If object is not void sets False as answer 
-  emit_label_def(get_label(), s);
+  emit_label_def(end_label, s);
   s << "# End of isvoid" << endl;
 }
 
