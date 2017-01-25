@@ -30,7 +30,7 @@ str_const11:
 	.word	4
 	.word	5
 	.word	String_dispTab
-	.word	int_const1
+	.word	int_const2
 	.byte	0	
 	.align	2
 	.word	-1
@@ -38,7 +38,7 @@ str_const10:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const2
+	.word	int_const1
 	.ascii	"Main"
 	.byte	0	
 	.align	2
@@ -56,7 +56,7 @@ str_const8:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const2
+	.word	int_const1
 	.ascii	"Bool"
 	.byte	0	
 	.align	2
@@ -173,13 +173,13 @@ int_const2:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	4
+	.word	0
 	.word	-1
 int_const1:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	0
+	.word	4
 	.word	-1
 int_const0:
 	.word	2
@@ -258,16 +258,17 @@ Object_dispTab:
 	.word	-1
 Main_protObj:
 	.word	5
-	.word	5
+	.word	6
 	.word	Main_dispTab
-	.word	int_const1
-	.word	int_const1
+	.word	0
+	.word	int_const2
+	.word	int_const2
 	.word	-1
 String_protObj:
 	.word	4
 	.word	5
 	.word	String_dispTab
-	.word	int_const1
+	.word	int_const2
 	.word	0
 	.word	-1
 Bool_protObj:
@@ -309,11 +310,11 @@ Main_init:
 	move	$s0 $a0
 	jal	IO_init
 # Start of object
-	lw	$a0 16($s0)
+	lw	$a0 20($s0)
 # End of object
-	sw	$a0 12($s0)
-	la	$a0 int_const0
 	sw	$a0 16($s0)
+	la	$a0 int_const0
+	sw	$a0 20($s0)
 	move	$a0 $s0
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
@@ -411,12 +412,19 @@ Main.main:
 	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
+# Start of assign
+	la	$a0 int_const1
+	sw	$a0 16($s0)
+# Start of assign
 # Start of object
-	lw	$a0 12($s0)
+	lw	$a0 20($s0)
 # End of object
+	sw	$a0 16($s0)
+# Start of assign
 # Start of object
 	move	$a0 $s0
 # End of object
+	sw	$a0 12($s0)
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
 	lw	$ra 4($sp)

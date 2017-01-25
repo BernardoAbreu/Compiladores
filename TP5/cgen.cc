@@ -1287,8 +1287,19 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //*****************************************************************
 
 void assign_class::code(ostream &s) {
+  s << "# Start of assign" << endl;
   expr->code(s);
-  s << "assign" << endl;
+
+  std::pair<int, char*> obj = *(attribute_table->lookup(name));
+  int offset = obj.first;
+  char* reg = obj.second;
+
+  if (offset != 0){
+    emit_store(ACC, offset, reg, s);
+  }
+  else{
+    emit_move(reg, ACC,s);
+  }
 }
 
 void static_dispatch_class::code(ostream &s) {
@@ -1569,20 +1580,18 @@ void no_expr_class::code(ostream &s) {
 
 void object_class::code(ostream &s) {
   s << "# Start of object" << endl;
-  cout << 11<<endl;
+
   std::pair<int, char*> obj = *(attribute_table->lookup(name));
-  cout << 12<<endl;
   int offset = obj.first;
-  cout << 13<<endl;
   char* reg = obj.second;
-  cout << 14<<endl;
+
   if (offset != 0){
     emit_load(ACC, offset, reg, s);
   }
   else{
     emit_move(ACC, reg, s);
   }
-  cout << 15<<endl;
+
   s << "# End of object" << endl;
 
 

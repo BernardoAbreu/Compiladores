@@ -27,7 +27,7 @@ class Main inherits A {
 *)
 
 class Main inherits IO{
-
+  x : SELF_TYPE;
   a : Int <- b;
 
   b : Int <- 1;
@@ -49,8 +49,10 @@ class Main inherits IO{
     -- 5
     -- pool;
     --if true then 1 else 0 fi;
-    a;
-    self;
+    a <- 4;
+    a <- b;
+
+    x <- self;
     } 
   };
   
