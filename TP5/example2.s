@@ -222,6 +222,11 @@ Main_dispTab:
 	.word	Object.abort
 	.word	Object.type_name
 	.word	Object.copy
+	.word	IO.out_string
+	.word	IO.out_int
+	.word	IO.in_string
+	.word	IO.in_int
+	.word	Main.a
 	.word	Main.main
 String_dispTab:
 	.word	Object.abort
@@ -253,8 +258,10 @@ Object_dispTab:
 	.word	-1
 Main_protObj:
 	.word	5
-	.word	3
+	.word	5
 	.word	Main_dispTab
+	.word	int_const1
+	.word	int_const1
 	.word	-1
 String_protObj:
 	.word	4
@@ -300,7 +307,13 @@ Main_init:
 	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-	jal	Object_init
+	jal	IO_init
+# Start of object
+	lw	$a0 16($s0)
+# End of object
+	sw	$a0 12($s0)
+	la	$a0 int_const0
+	sw	$a0 16($s0)
 	move	$a0 $s0
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
@@ -376,6 +389,21 @@ Object_init:
 	lw	$ra 4($sp)
 	addiu	$sp $sp 12
 	jr	$ra	
+Main.a:
+	addiu	$sp $sp -12
+	sw	$fp 12($sp)
+	sw	$s0 8($sp)
+	sw	$ra 4($sp)
+	addiu	$fp $sp 4
+	move	$s0 $a0
+# Start of object
+	lw	$a0 16($fp)
+# End of object
+	lw	$fp 12($sp)
+	lw	$s0 8($sp)
+	lw	$ra 4($sp)
+	addiu	$sp $sp 12
+	jr	$ra	
 Main.main:
 	addiu	$sp $sp -12
 	sw	$fp 12($sp)
@@ -383,16 +411,12 @@ Main.main:
 	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-# Start of condition
-	la	$a0 bool_const1
-	lw	$t1 12($a0)
-	beqz	$t1 label0
-	la	$a0 int_const0
-	b	label1
-label0:
-	la	$a0 int_const1
-label1:
-# End of condition
+# Start of object
+	lw	$a0 12($s0)
+# End of object
+# Start of object
+	move	$a0 $s0
+# End of object
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
 	lw	$ra 4($sp)

@@ -26,7 +26,13 @@ class Main inherits A {
   --b():Int {1};
 *)
 
-class Main {
+class Main inherits IO{
+
+  a : Int <- b;
+
+  b : Int <- 1;
+
+   a(x : Int, y: Int):Int { x} ;
   main():Object { {
     --isvoid 0;
     --not true;
@@ -42,7 +48,9 @@ class Main {
     -- while true loop
     -- 5
     -- pool;
-    if true then 1 else 0 fi;
+    --if true then 1 else 0 fi;
+    a;
+    self;
     } 
   };
   

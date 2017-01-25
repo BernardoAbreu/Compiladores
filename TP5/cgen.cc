@@ -836,6 +836,37 @@ void CgenNode::set_parentnd(CgenNodeP p)
 }
 
 
+
+//////////////////////////////////////////////////////////////
+///My functions
+
+//Returns number of attributes inserted on table
+int build_attribute_table(CgenNodeP nd){
+
+    Symbol class_name = nd->get_name();
+    cout << class_name << endl;
+    if( class_name == No_class){
+      attribute_table->addid(self, new std::pair<int, char*>(0,SELF));
+      return 0;
+    }
+
+    int attr_n = build_attribute_table(nd->get_parentnd());
+
+    Features feats = nd->features;
+
+    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      if(!feat->is_method()){
+        attribute_table->addid(feat->get_name(), new std::pair<int, char*>(attr_n + DEFAULT_OBJFIELDS,SELF));
+        attr_n++;
+      }
+    }
+
+    return attr_n;
+}
+
+
+
 void CgenClassTable::set_tags(){
     int i = number_of_classes - 1;
     tags = new Symbol[number_of_classes];
@@ -1067,6 +1098,10 @@ void code_initializer(CgenNodeP nd, ostream& s){
 
   Features feats = nd->features;
 
+  attribute_table->enterscope();
+
+  build_attribute_table(nd);
+
   int offset = DEFAULT_OBJFIELDS + get_attr_size(nd->get_parentnd());
 
   for(int i = feats->first(); feats->more(i); i = feats->next(i)){
@@ -1076,6 +1111,7 @@ void code_initializer(CgenNodeP nd, ostream& s){
       }
   }
 
+  attribute_table->exitscope();
 
   emit_move(ACC, SELF,s);
   emit_load(FP, 3, SP,s);
@@ -1104,11 +1140,26 @@ void method_class::code(int offset, ostream &s) {
     emit_store(RA, 1, SP, s);
     emit_addiu(FP, SP, 4, s);
     emit_move(SELF, ACC,s);
-
+    cout << 1 << endl;
+    
+    attribute_table->enterscope();
+    cout << 2 << endl;
+    int formal_length = 0;
+    for(int i = formals->first(); formals->more(i); i = formals->next(i)){
+        formal_length++;
+    }
+cout << 3 << endl;
+    for(int i = formals->first(); formals->more(i); i = formals->next(i)){
+        Formal formal = formals->nth(i);
+        attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + 2,FP));
+        formal_length--;
+    }
+cout << 4 << endl;
 
     expr->code(s);
-
-
+cout << 5 << endl;
+    attribute_table->exitscope();
+cout << 6 << endl;
     emit_load(FP, 3, SP,s);
     emit_load(SELF, 2, SP,s);
     emit_load(RA, 1, SP,s);
@@ -1122,6 +1173,12 @@ void CgenClassTable::code_methods(){
     for(List<CgenNode> *l = nds; l; l = l->tl()){
         CgenNodeP nd = l->hd();
         
+        attribute_table->enterscope();
+
+        build_attribute_table(nd);
+
+  
+
         if(!nd->basic()){
           Features feats = nd->features;
           int offset = get_meth_size(nd->get_parentnd());
@@ -1134,11 +1191,10 @@ void CgenClassTable::code_methods(){
               }
           }  
         }
+        attribute_table->exitscope();
     }
 
 }
-
-
 
 
 int set_new_label(){
@@ -1146,9 +1202,10 @@ int set_new_label(){
 }
 
 
-
 void CgenClassTable::code()
 {
+
+  attribute_table = new SymbolTable<Symbol, std::pair<int, char*> > ();
   if (cgen_debug) cout << "coding global data" << endl;
   code_global_data();
 
@@ -1191,6 +1248,8 @@ void CgenClassTable::code()
 
   if (cgen_debug) cout << "coding methods" << endl;
   code_methods();
+
+  delete attribute_table;
 }
 
 
@@ -1509,7 +1568,23 @@ void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
-  s << "object" << endl;
+  s << "# Start of object" << endl;
+  cout << 11<<endl;
+  std::pair<int, char*> obj = *(attribute_table->lookup(name));
+  cout << 12<<endl;
+  int offset = obj.first;
+  cout << 13<<endl;
+  char* reg = obj.second;
+  cout << 14<<endl;
+  if (offset != 0){
+    emit_load(ACC, offset, reg, s);
+  }
+  else{
+    emit_move(ACC, reg, s);
+  }
+  cout << 15<<endl;
+  s << "# End of object" << endl;
+
 
 }
 

@@ -103,7 +103,7 @@ class BoolConst
   void code_ref(ostream&) const;
 };
 
-SymbolTable<Symbol, std::pair<int,char*> > *attribute_map;
+SymbolTable<Symbol, std::pair<int, char*> > *attribute_table;
 
 int label_index;
 int get_label();
