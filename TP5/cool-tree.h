@@ -89,6 +89,7 @@ public:
    tree_node *copy()     { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
    virtual bool is_noexpr() = 0;
+   virtual int count_stack(int) = 0;
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
 #endif
@@ -102,6 +103,8 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()     { return copy_Case(); }
    virtual Case copy_Case() = 0;
+
+   virtual int count_stack(int) = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -286,6 +289,8 @@ public:
    Case copy_Case();
    void dump(ostream& stream, int n);
 
+   int count_stack(int);
+
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
 #endif
@@ -309,6 +314,7 @@ public:
    void dump(ostream& stream, int n);
    
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -337,6 +343,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -363,6 +370,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -389,6 +397,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -413,6 +422,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -437,6 +447,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -459,6 +470,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -476,6 +488,8 @@ public:
    Symbol type_decl;
    Expression init;
    Expression body;
+
+   int offset;
 public:
    let_class(Symbol a1, Symbol a2, Expression a3, Expression a4) {
       identifier = a1;
@@ -487,6 +501,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -511,6 +526,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -535,6 +551,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -559,6 +576,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -583,6 +601,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -605,6 +624,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -629,6 +649,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -653,6 +674,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -677,6 +699,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -699,6 +722,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -721,6 +745,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -743,6 +768,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -765,6 +791,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -787,6 +814,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -809,6 +837,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -829,6 +858,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return true;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -851,6 +881,7 @@ public:
    void dump(ostream& stream, int n);
 
    bool is_noexpr() { return false;}
+   int count_stack(int);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS

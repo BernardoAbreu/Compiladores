@@ -844,9 +844,8 @@ void CgenNode::set_parentnd(CgenNodeP p)
 int build_attribute_table(CgenNodeP nd){
 
     Symbol class_name = nd->get_name();
-    cout << class_name << endl;
+
     if( class_name == No_class){
-      attribute_table->addid(self, new std::pair<int, char*>(0,SELF));
       return 0;
     }
 
@@ -1132,38 +1131,51 @@ void CgenClassTable::code_initializers(){
 
 
 
+void allocate_stack(int stack_size, ostream &s){
+    emit_addiu(SP, SP, - ( WORD_SIZE * stack_size), s);
+    emit_store(FP, stack_size--, SP, s);
+    emit_store(SELF, stack_size--, SP, s);
+    emit_store(RA, stack_size--, SP, s);
+}
+
+
+void deallocate_stack(int stack_size, ostream &s){
+    emit_load(FP, stack_size, SP,s);
+    emit_load(SELF, stack_size-1, SP,s);
+    emit_load(RA, stack_size-2, SP,s);
+    emit_addiu(SP, SP, WORD_SIZE*stack_size, s);
+}
+
 
 void method_class::code(int offset, ostream &s) {
-    emit_addiu(SP, SP, -12, s);
-    emit_store(FP, 3, SP, s);
-    emit_store(SELF, 2, SP, s);
-    emit_store(RA, 1, SP, s);
+    
+    int stack_size = 3 + expr->count_stack(0);
+
+    allocate_stack(stack_size,s);
+
     emit_addiu(FP, SP, 4, s);
     emit_move(SELF, ACC,s);
-    cout << 1 << endl;
+
     
     attribute_table->enterscope();
-    cout << 2 << endl;
+
     int formal_length = 0;
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
         formal_length++;
     }
-cout << 3 << endl;
+
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
         Formal formal = formals->nth(i);
-        attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + 2,FP));
         formal_length--;
+        attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + stack_size,FP));        
     }
-cout << 4 << endl;
 
     expr->code(s);
-cout << 5 << endl;
+
     attribute_table->exitscope();
-cout << 6 << endl;
-    emit_load(FP, 3, SP,s);
-    emit_load(SELF, 2, SP,s);
-    emit_load(RA, 1, SP,s);
-    emit_addiu(SP, SP, 12, s);
+
+    
+    deallocate_stack(stack_size,s);
     emit_return(s);
 }
 
@@ -1294,12 +1306,8 @@ void assign_class::code(ostream &s) {
   int offset = obj.first;
   char* reg = obj.second;
 
-  if (offset != 0){
-    emit_store(ACC, offset, reg, s);
-  }
-  else{
-    emit_move(reg, ACC,s);
-  }
+  emit_store(ACC, offset, reg, s);
+
 }
 
 void static_dispatch_class::code(ostream &s) {
@@ -1368,7 +1376,37 @@ void block_class::code(ostream &s) {
 }
 
 void let_class::code(ostream &s) {
-  s << "let" << endl;
+  s << "# Start of let" << endl;
+  attribute_table->enterscope();
+  attribute_table->addid(identifier, new std::pair<int, char*>(offset,FP));
+
+  if(init->is_noexpr()){
+    emit_partial_load_address(ACC, s);
+    if(type_decl == Int){
+        inttable.lookup_string("0")->code_ref(s);
+    }
+    else if (type_decl == Str){
+      stringtable.lookup_string("")->code_ref(s);
+    }
+    else if (type_decl == Bool){
+      falsebool.code_ref(s);
+    }
+    else{
+        s << 0;
+    }
+    s << endl;
+  }
+  else{
+    init->code(s);
+  }
+
+  emit_store(ACC, offset, FP, s);
+
+  body->code(s);
+  attribute_table->exitscope();
+
+
+  s << "# End of let" << endl;
 }
 
 void plus_class::code(ostream &s) {
@@ -1456,9 +1494,13 @@ void neg_class::code(ostream &s) {
 void lt_class::code(ostream &s) {
   s << "# Start of lt" << endl;
   e1->code(s);
-  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of first Int obj
+  emit_push(ACC,s);                         //Saves first int object
   e2->code(s);
+  emit_pop(T1, s);
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s); //Get value of first Int obj
   emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
+
+  
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
 
   int end_label = set_new_label();
@@ -1471,8 +1513,9 @@ void lt_class::code(ostream &s) {
 void eq_class::code(ostream &s) {
   s << "# Start of eq" << endl;
   e1->code(s);
-  emit_move(T1, ACC, s);                    //Get first obj
+  emit_push(ACC,s);                         //Saves first int object
   e2->code(s);
+  emit_pop(T1, s);
   emit_move(T2, ACC, s);                    //Get second obj
   
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
@@ -1489,8 +1532,10 @@ void eq_class::code(ostream &s) {
 void leq_class::code(ostream &s) {
   s << "# Start of leq" << endl;
   e1->code(s);
-  emit_load(T1, DEFAULT_OBJFIELDS, ACC, s); //Get value of first Int obj
+  emit_push(ACC,s);                         //Saves first int object
   e2->code(s);
+  emit_pop(T1, s);
+  emit_load(T1, DEFAULT_OBJFIELDS, T1, s); //Get value of first Int obj
   emit_load(T2, DEFAULT_OBJFIELDS, ACC, s); //Get value of second Int obj
   emit_load_bool(ACC,BoolConst(1), s);      //Sets True as the result
 
@@ -1569,7 +1614,7 @@ void isvoid_class::code(ostream &s) {
   emit_load_bool(ACC,BoolConst(1), s);    //Sets True as answer
 
   int end_label = set_new_label();
-  emit_beqz(ACC, end_label, s);           //Checks if object is 0 (void)
+  emit_beqz(T1, end_label, s);           //Checks if object is 0 (void)
   emit_load_bool(ACC,BoolConst(0), s);    //If object is not void sets False as answer 
   emit_label_def(end_label, s);
   s << "# End of isvoid" << endl;
@@ -1581,20 +1626,182 @@ void no_expr_class::code(ostream &s) {
 void object_class::code(ostream &s) {
   s << "# Start of object" << endl;
 
-  std::pair<int, char*> obj = *(attribute_table->lookup(name));
-  int offset = obj.first;
-  char* reg = obj.second;
-
-  if (offset != 0){
-    emit_load(ACC, offset, reg, s);
+  if(name == self){
+    emit_move(ACC, SELF, s);
   }
   else{
-    emit_move(ACC, reg, s);
+    std::pair<int, char*> obj = *(attribute_table->lookup(name));
+    int offset = obj.first;
+    char* reg = obj.second;
+
+    emit_load(ACC, offset, reg, s);
   }
-
+  
   s << "# End of object" << endl;
-
 
 }
 
 
+
+int branch_class::count_stack(int depth){
+  return expr->count_stack(depth);
+}
+
+
+int assign_class::count_stack(int depth) {
+  return expr->count_stack(depth);
+}
+
+int static_dispatch_class::count_stack(int depth) {
+  int expr_c = expr->count_stack(depth);
+  int actual_c = 0;
+
+  for(int i = actual->first(); actual->more(i); i = actual->next(i)){
+      int c = actual->nth(i)->count_stack(depth);
+      if (c > actual_c){
+        actual_c = c;
+      }
+
+  }
+
+  return (expr_c > actual_c) ? expr_c : actual_c;
+}
+
+int dispatch_class::count_stack(int depth) {
+  int expr_c = expr->count_stack(depth);
+  int actual_c = 0;
+
+  for(int i = actual->first(); actual->more(i); i = actual->next(i)){
+      int c = actual->nth(i)->count_stack(depth);
+      if (c > actual_c){
+        actual_c = c;
+      }
+
+  }
+
+  return (expr_c > actual_c) ? expr_c : actual_c;
+}
+
+int cond_class::count_stack(int depth) {
+  int pred_c,then_c,else_c;
+  pred_c = pred->count_stack(depth);
+  then_c = then_exp->count_stack(depth);
+  else_c = else_exp->count_stack(depth);
+  return (pred_c > then_c) ?  ( (pred_c > else_c) ? pred_c : else_c) :
+                              ( (then_c > else_c) ? then_c : else_c);
+}
+
+int loop_class::count_stack(int depth) {
+  int pred_c, body_c;
+  pred_c = pred->count_stack(depth);
+  body_c = body->count_stack(depth);
+  return (pred_c > body_c) ? pred_c : body_c;
+}
+
+int typcase_class::count_stack(int depth) {
+  int count = 0;
+  for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+      int c = cases->nth(i)->count_stack(depth);
+      if (c > count){
+        count = c;
+      }
+  }
+  int expr_c = expr->count_stack(depth);
+  return (count > expr_c) ? count : expr_c;
+}
+
+int block_class::count_stack(int depth) {
+  int count = 0;
+  for(int i = body->first(); body->more(i); i = body->next(i)){
+      int c = body->nth(i)->count_stack(depth);
+      if (c > count){
+        count = c;
+      }
+  }
+  return count;
+}
+
+int let_class::count_stack(int depth) {
+  offset = depth;
+  int init_c = init->count_stack(depth+1);
+  int body_c = body->count_stack(depth+1);
+  return 1 + ((init_c > body_c) ? init_c : body_c);
+}
+
+int plus_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int sub_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int mul_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int divide_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int neg_class::count_stack(int depth) {
+  return e1->count_stack(depth);
+}
+
+int lt_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int eq_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int leq_class::count_stack(int depth) {
+  int e1_c = e1->count_stack(depth);
+  int e2_c = e2->count_stack(depth);
+  return (e1_c > e2_c) ? e1_c : e2_c;
+}
+
+int comp_class::count_stack(int depth) {
+  return e1->count_stack(depth);
+}
+
+int int_const_class::count_stack(int depth) {
+  return 0;
+}
+
+int string_const_class::count_stack(int depth){
+  return 0;
+}
+
+int bool_const_class::count_stack(int depth){
+  return 0;
+}
+
+int new__class::count_stack(int depth) {
+  return 0;
+}
+
+int isvoid_class::count_stack(int depth) {
+  return e1->count_stack(depth);
+}
+
+int no_expr_class::count_stack(int depth) {
+  return 0;
+}
+
+int object_class::count_stack(int depth) {
+  return 0;
+}
