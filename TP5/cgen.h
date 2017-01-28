@@ -3,6 +3,7 @@
 #include "emit.h"
 #include "cool-tree.h"
 #include "symtab.h"
+#include <list>
 
 enum Basicness     {Basic, NotBasic};
 #define TRUE 1
@@ -24,10 +25,8 @@ private:
 
 ///////////////////////////////////
    int number_of_classes;
-   Symbol *tags;
 
    void set_tags();
-   int get_tag(Symbol);
 ///////////////////////////////////
 
 
@@ -103,8 +102,22 @@ class BoolConst
   void code_ref(ostream&) const;
 };
 
-SymbolTable<Symbol, std::pair<int, char*> > *attribute_table;
+
+SymbolTable<Symbol, std::pair<int, CgenNodeP> > *class_table;
+
+typedef struct {
+  Symbol type;
+  int offset;
+  char* reg;
+} attr_elem;
+
+
+SymbolTable<Symbol, attr_elem > *attribute_table;
 
 int label_index;
 int get_label();
 int set_label();
+
+Symbol filename;
+
+

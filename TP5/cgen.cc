@@ -640,14 +640,20 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    boolclasstag =   3 /* Change to your Bool class tag here */;
 
    label_index = 0;
+
+   class_table = new SymbolTable<Symbol, std::pair<int, CgenNodeP> >();
+
    enterscope();
+
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
    install_basic_classes();
    install_classes(classes);
    build_inheritance_tree();
 
+   class_table->enterscope();
    set_tags();
    code();
+   class_table->exitscope();
    exitscope();
 }
 
@@ -856,11 +862,11 @@ int build_attribute_table(CgenNodeP nd){
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
       Feature feat = feats->nth(i);
       if(!feat->is_method()){
-        attribute_table->addid(feat->get_name(), new std::pair<int, char*>(attr_n + DEFAULT_OBJFIELDS,SELF));
+        //attribute_table->addid(feat->get_name(), new std::pair<int, char*>(attr_n + DEFAULT_OBJFIELDS,SELF));
+        attribute_table->addid(feat->get_name(), new attr_elem{feat->get_type(),attr_n + DEFAULT_OBJFIELDS,SELF});
         attr_n++;
       }
     }
-
     return attr_n;
 }
 
@@ -868,51 +874,41 @@ int build_attribute_table(CgenNodeP nd){
 
 void CgenClassTable::set_tags(){
     int i = number_of_classes - 1;
-    tags = new Symbol[number_of_classes];
-     for(List<CgenNode> *l = nds; l && (i >= 0); l = l->tl(), i--){
-      tags[i] =  l->hd()->get_name();
+
+    for(List<CgenNode> *l = nds; l && (i >= 0); l = l->tl(), i--){
+      CgenNodeP nd = l->hd();
+      class_table->addid(nd->get_name(), new std::pair<int, CgenNodeP>(i,nd));
     }
 }
 
-int CgenClassTable::get_tag(Symbol name){
-    for(int i = 0; i < number_of_classes; i++){
-      if(tags[i] == name){
-        return i;
-      }
-    }
-    return number_of_classes;
-}
-
-bool is_lowest_method(Features feats, Symbol method_name){
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-        Feature feat = feats->nth(i);
-        if( feat->is_method() && (feat->get_name() == method_name)){
-          return false;
-        }
-    }
-    return true;
-
-}
 
 
-void code_disp_table(CgenNodeP nd, Features past_feats, ostream& s){
+void code_disp_list(CgenNodeP nd, std::list<std::pair<Symbol,Symbol> > *meth_list){
     Symbol class_name = nd->get_name();
-    if( class_name == No_class)
-      return;
-    
+    if( class_name != Object){
+        code_disp_list(nd->get_parentnd(), meth_list);
+    }
+
     Features feats = nd->features;
 
-    code_disp_table(nd->get_parentnd(), append_Features(past_feats,feats), s);
-
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      if(feat->is_method() && is_lowest_method(past_feats,feat->get_name())){
-        s << WORD;
-          emit_method_ref(class_name,feat->get_name(),s);
-          s << endl;
-      }
-    }
+        Feature feat = feats->nth(i);
 
+        if(feat->is_method()){
+            bool inserted = false;
+
+            for (std::list<std::pair<Symbol,Symbol> >::iterator it=meth_list->begin(); it != meth_list->end(); ++it){
+                if((*it).second == feat->get_name()){
+                    (*it) = std::pair<Symbol,Symbol>(nd->get_name(),feat->get_name());
+                    inserted = true;
+                }
+            }
+
+            if(!inserted){
+              meth_list->push_back(std::pair<Symbol,Symbol>(nd->get_name(),feat->get_name()));
+            }
+        }
+    }
 }
 
 
@@ -923,9 +919,18 @@ void CgenClassTable::code_disp_tables(){
         Symbol class_name = nd->get_name();
         emit_disptable_ref(class_name, str);
         str << LABEL;
-        code_disp_table(nd, nil_Features(), str);
-    }
 
+        std::list<std::pair<Symbol,Symbol> > *meth_list = new std::list<std::pair<Symbol,Symbol> >();
+
+        code_disp_list(nd, meth_list);
+
+        for (std::list<std::pair<Symbol,Symbol> >::iterator it=meth_list->begin(); it != meth_list->end(); ++it){
+            str << WORD;
+            emit_method_ref((*it).first,(*it).second,str);
+            str << endl;
+        }
+        delete meth_list;
+    }
 }
 
 
@@ -1013,6 +1018,29 @@ int get_meth_size(CgenNodeP nd){
     return meth_n + get_meth_size(nd->get_parentnd());
 }
 
+int get_meth_offset(CgenNodeP nd, Symbol meth_name){
+
+   Symbol class_name = nd->get_name();
+    if( class_name == No_class)
+      return 0;
+
+    int meth_n = 0;
+
+    Features feats = nd->features;
+
+    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+      Feature feat = feats->nth(i);
+      if(feat->is_method()){
+        if (feat->get_name() == meth_name){
+          return meth_n + get_meth_size(nd->get_parentnd());
+        }
+        meth_n++;
+      }
+    }
+
+    return meth_n;
+}
+
 
 void code_proto_attributes( CgenNodeP nd, ostream& s){
     Symbol class_name = nd->get_name();
@@ -1055,8 +1083,8 @@ void CgenClassTable::code_proto_object_def( CgenNodeP nd, ostream& s){
     
     Symbol obj_name = nd->get_name();
 
-    emit_protobj_ref(obj_name, s);;  s << LABEL                  // label
-        << WORD << get_tag(obj_name) << endl                        // class tag
+    emit_protobj_ref(obj_name, s);;  s << LABEL                     // label
+        << WORD << class_table->lookup(obj_name)->first << endl     // class tag
         << WORD << (DEFAULT_OBJFIELDS + get_attr_size(nd)) << endl  // object size
         << WORD; 
 
@@ -1083,11 +1111,26 @@ void attr_class::code(int offset, ostream &s) {
 }
 
 
+void allocate_stack(int stack_size, ostream &s){
+    emit_addiu(SP, SP, - ( WORD_SIZE * stack_size), s);
+    emit_store(FP, stack_size--, SP, s);
+    emit_store(SELF, stack_size--, SP, s);
+    emit_store(RA, stack_size--, SP, s);
+}
+
+
+void deallocate_stack(int stack_size, ostream &s){
+    emit_load(FP, stack_size, SP,s);
+    emit_load(SELF, stack_size-1, SP,s);
+    emit_load(RA, stack_size-2, SP,s);
+    emit_addiu(SP, SP, WORD_SIZE*stack_size, s);
+}
+
+
 void code_initializer(CgenNodeP nd, ostream& s){
-  emit_addiu(SP, SP, -12, s);
-  emit_store(FP, 3, SP, s);
-  emit_store(SELF, 2, SP, s);
-  emit_store(RA, 1, SP, s);
+  allocate_stack(3, s);
+  
+
   emit_addiu(FP, SP, 4, s);
   emit_move(SELF, ACC,s);
 
@@ -1113,10 +1156,8 @@ void code_initializer(CgenNodeP nd, ostream& s){
   attribute_table->exitscope();
 
   emit_move(ACC, SELF,s);
-  emit_load(FP, 3, SP,s);
-  emit_load(SELF, 2, SP,s);
-  emit_load(RA, 1, SP,s);
-  emit_addiu(SP, SP, 12, s);
+ 
+  deallocate_stack(3, s);
   emit_return(s);
 }
 
@@ -1127,23 +1168,6 @@ void CgenClassTable::code_initializers(){
       str << LABEL;
       code_initializer(l->hd(), str);
     }
-}
-
-
-
-void allocate_stack(int stack_size, ostream &s){
-    emit_addiu(SP, SP, - ( WORD_SIZE * stack_size), s);
-    emit_store(FP, stack_size--, SP, s);
-    emit_store(SELF, stack_size--, SP, s);
-    emit_store(RA, stack_size--, SP, s);
-}
-
-
-void deallocate_stack(int stack_size, ostream &s){
-    emit_load(FP, stack_size, SP,s);
-    emit_load(SELF, stack_size-1, SP,s);
-    emit_load(RA, stack_size-2, SP,s);
-    emit_addiu(SP, SP, WORD_SIZE*stack_size, s);
 }
 
 
@@ -1167,7 +1191,8 @@ void method_class::code(int offset, ostream &s) {
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
         Formal formal = formals->nth(i);
         formal_length--;
-        attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + stack_size,FP));        
+        // attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + stack_size,FP));
+        attribute_table->addid(formal->get_name(), new attr_elem{formal->get_type(),formal_length + stack_size,FP});
     }
 
     expr->code(s);
@@ -1185,11 +1210,12 @@ void CgenClassTable::code_methods(){
     for(List<CgenNode> *l = nds; l; l = l->tl()){
         CgenNodeP nd = l->hd();
         
+        filename = nd->filename;
+
         attribute_table->enterscope();
 
         build_attribute_table(nd);
 
-  
 
         if(!nd->basic()){
           Features feats = nd->features;
@@ -1217,7 +1243,8 @@ int set_new_label(){
 void CgenClassTable::code()
 {
 
-  attribute_table = new SymbolTable<Symbol, std::pair<int, char*> > ();
+  //attribute_table = new SymbolTable<Symbol, std::pair<int, char*> > ();
+  attribute_table = new SymbolTable<Symbol, attr_elem> ();
   if (cgen_debug) cout << "coding global data" << endl;
   code_global_data();
 
@@ -1302,20 +1329,81 @@ void assign_class::code(ostream &s) {
   s << "# Start of assign" << endl;
   expr->code(s);
 
-  std::pair<int, char*> obj = *(attribute_table->lookup(name));
-  int offset = obj.first;
-  char* reg = obj.second;
+  attr_elem *obj = (attribute_table->lookup(name));
 
-  emit_store(ACC, offset, reg, s);
+  emit_store(ACC, obj->offset,obj->reg, s);
 
 }
 
 void static_dispatch_class::code(ostream &s) {
-  s << "static_dispatch" << endl;
+  s << "# Start of static_dispatch" << endl;
+
+  //Stack arguments
+   for(int i = actual->first(); actual->more(i); i = actual->next(i)){
+      actual->nth(i)->code(s);
+      emit_push(ACC,s);
+  }
+
+  expr->code(s);
+  
+  int disp_label = set_new_label();
+
+  emit_bne(ACC,ZERO,disp_label, s);         //Test for dispatch on void
+
+  /////// Dispatch on void ///////////////
+  emit_partial_load_address(ACC, s);
+  stringtable.lookup_string(filename->get_string())->code_ref(s);
+  s << endl;
+  emit_load_imm(T1,this->get_line_number(),s);
+  emit_jal("_dispatch_abort",s);
+  ////////////////////////////////////////
+
+  emit_label_def(disp_label, s);
+
+  emit_partial_load_address(T1, s);
+  emit_disptable_ref(type_name, s);
+  s << endl;
+
+  std::pair<int, CgenNodeP> *obj_class = (class_table->lookup(type_name));
+  CgenNodeP nd = obj_class->second;
+
+  int meth_offset = get_meth_offset(nd,name);
+
+  emit_load(T1,meth_offset, T1, s);
+
+  emit_jalr(T1,s);
+
+  s << "# End of static_dispatch" << endl;
+  
 }
 
 void dispatch_class::code(ostream &s) {
   s << "dispatch" << endl;
+  expr->code(s);
+
+  
+  int void_label = set_new_label();
+
+  emit_beqz(ACC,void_label, s);       //Test for dispatch on void
+  
+  //Stack arguments
+  //
+  ///////////////////
+  emit_load(T1, DISPTABLE_OFFSET, ACC, s);
+
+
+
+  //Get disptable
+  
+
+
+  //Void Label
+  emit_label_def(void_label, s);
+  emit_partial_load_address(ACC, s);
+  stringtable.lookup_string(filename->get_string())->code_ref(s);
+  s << endl;
+  emit_load_imm(T1,this->get_line_number(),s);
+  emit_jal("_dispatch_abort",s);
 }
 
 void cond_class::code(ostream &s) {
@@ -1378,7 +1466,8 @@ void block_class::code(ostream &s) {
 void let_class::code(ostream &s) {
   s << "# Start of let" << endl;
   attribute_table->enterscope();
-  attribute_table->addid(identifier, new std::pair<int, char*>(offset,FP));
+  //attribute_table->addid(identifier, new std::pair<int, char*>(offset,FP));
+  attribute_table->addid(identifier, new  attr_elem{type_decl,offset,FP});
 
   if(init->is_noexpr()){
     emit_partial_load_address(ACC, s);
@@ -1630,11 +1719,8 @@ void object_class::code(ostream &s) {
     emit_move(ACC, SELF, s);
   }
   else{
-    std::pair<int, char*> obj = *(attribute_table->lookup(name));
-    int offset = obj.first;
-    char* reg = obj.second;
-
-    emit_load(ACC, offset, reg, s);
+    attr_elem *obj = (attribute_table->lookup(name));
+    emit_load(ACC, obj->offset, obj->reg, s);
   }
   
   s << "# End of object" << endl;

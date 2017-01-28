@@ -74,6 +74,7 @@ public:
    virtual Formal copy_Formal() = 0;
 
    virtual Symbol get_name() = 0;
+   virtual Symbol get_type() = 0;
 
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
@@ -261,6 +262,7 @@ public:
    }
 
    Symbol get_name()   { return name; }
+   Symbol get_type()   { return type_decl; }
 
    Formal copy_Formal();
    void dump(ostream& stream, int n);

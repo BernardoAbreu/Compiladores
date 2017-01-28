@@ -2,13 +2,13 @@
 (*  Example cool program testing as many aspects of the code generator
     as possible.
  *)
-(*
+
 class A inherits IO{
   b:Bool <- true;
   bb:Bool <- b;
   s : String <- "Hello";
 
-  a():Int { 1} ;
+  a(x:Int,y:Int):Int { x+y} ;
 
 };
 
@@ -21,39 +21,38 @@ class Main inherits A {
 --  v1 : SELF_TYPE <- (new SELF_TYPE);
   v2 : Int <- 1 + 4;
 
-  a():Int { 0} ;
+
 
   --b():Int {1};
-*)
 
-class Main inherits IO{
-  x : SELF_TYPE;
-  a : Int <- b;
+-- class Main inherits IO{
+--   x : SELF_TYPE;
+--   a : Int <- b;
 
-  b : Int <- 1;
+--   b : Int <- 1;
 
-  a(x : Int, y: Int):Int { x} ;
+--   a(x : Int, y: Int):Int { x} ;
   main():Object { 
     {
-      isvoid 0;
-      not true;
-      ~2;
-      1+3;
-      4-8;
-      10*3;
-      8/4;
-      1<2;
-      5<=3;
-      1 = 1;
-      (new Main) = (new Main);
-      while true loop
-      5
-      pool;
-      if true then 1 else 0 fi;
-      a <- 4;
-      a <- b;
+      -- isvoid 0;
+      -- not true;
+      -- ~2;
+      -- 1+3;
+      -- 4-8;
+      -- 10*3;
+      -- 8/4;
+      -- 1<2;
+      -- 5<=3;
+      -- 1 = 1;
+      -- (new Main) = (new Main);
+      -- while true loop
+      -- 5
+      -- pool;
+      -- if true then 1 else 0 fi;
+      -- a <- 4;
+      -- a <- b;
 
-      x <- self;
+      -- x <- self;
       -- let 
       -- x1 : Int <- 0, 
       -- x2 : Int <- 1,
@@ -74,7 +73,10 @@ class Main inherits IO{
       --   out_int(x7);
       --   out_int(x8);
       -- };
-      let x:Int in x<-b;
+      -- let x:Int in x<-b;
+      self@A.a(5,3);
     }
   };
+
+    a(x:Int,y:Int):Int { x+2} ;
 };
