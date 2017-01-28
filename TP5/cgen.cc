@@ -1363,7 +1363,7 @@ void static_dispatch_class::code(ostream &s) {
 }
 
 void dispatch_class::code(ostream &s) {
-  s << "dispatch" << endl;
+  s << "# Start of dispatch" << endl;
 
   //Stack arguments
   for(int i = actual->first(); actual->more(i); i = actual->next(i)){
@@ -1389,8 +1389,6 @@ void dispatch_class::code(ostream &s) {
   emit_label_def(disp_label, s);
 
   emit_load(T1, DISPTABLE_OFFSET, ACC, s);    //Get disptable
-  
-  cout << expr->get_type()<< endl;
 
   std::pair<int, CgenNodeP> *obj_class = (class_table->lookup(expr->get_type()));
   CgenNodeP nd = obj_class->second;
@@ -1400,6 +1398,8 @@ void dispatch_class::code(ostream &s) {
   emit_load(T1,meth_offset, T1, s);
 
   emit_jalr(T1,s);
+
+  s << "# End of dispatch" << endl;
 
 }
 
