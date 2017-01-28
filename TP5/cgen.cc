@@ -998,48 +998,28 @@ int get_attr_size(CgenNodeP nd){
 }
 
 
-int get_meth_size(CgenNodeP nd){
-
-   Symbol class_name = nd->get_name();
-    if( class_name == No_class)
-      return 0;
-
-    int meth_n = 0;
-
-    Features feats = nd->features;
-
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      if(feat->is_method()){
-        meth_n++;
-      }
-    }
-
-    return meth_n + get_meth_size(nd->get_parentnd());
-}
-
 int get_meth_offset(CgenNodeP nd, Symbol meth_name){
+    std::list<std::pair<Symbol,Symbol> > *meth_list = new std::list<std::pair<Symbol,Symbol> >();
 
-   Symbol class_name = nd->get_name();
-    if( class_name == No_class)
-      return 0;
+    code_disp_list(nd, meth_list);
 
-    int meth_n = 0;
+    int offset = 0;
 
-    Features feats = nd->features;
-
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      if(feat->is_method()){
-        if (feat->get_name() == meth_name){
-          return meth_n + get_meth_size(nd->get_parentnd());
+    for (std::list<std::pair<Symbol,Symbol> >::iterator it=meth_list->begin(); it != meth_list->end(); ++it){
+        if((*it).second == meth_name){
+          break;
         }
-        meth_n++;
-      }
+    
+        offset++;
     }
+    
+    delete meth_list;
+    return offset;
 
-    return meth_n;
 }
+
+
+////////////////////////////////////////////////
 
 
 void code_proto_attributes( CgenNodeP nd, ostream& s){
@@ -1171,7 +1151,7 @@ void CgenClassTable::code_initializers(){
 }
 
 
-void method_class::code(int offset, ostream &s) {
+void method_class::code(int dummy, ostream &s) {
     
     int stack_size = 3 + expr->count_stack(0);
 
@@ -1216,19 +1196,22 @@ void CgenClassTable::code_methods(){
 
         build_attribute_table(nd);
 
+        class_table->enterscope();
 
+        class_table->addid(SELF_TYPE, new std::pair<int, CgenNodeP>(-1,nd));
+        
         if(!nd->basic()){
           Features feats = nd->features;
-          int offset = get_meth_size(nd->get_parentnd());
 
           for(int i = feats->first(); feats->more(i); i = feats->next(i)){
               Feature feat = feats->nth(i);
               if(feat->is_method()){
                   emit_method_ref(nd->get_name(), feat->get_name(), str); str << LABEL;
-                      feat->code(offset++,str);
+                      feat->code(0,str);
               }
           }  
         }
+        class_table->exitscope();
         attribute_table->exitscope();
     }
 
@@ -1343,6 +1326,8 @@ void static_dispatch_class::code(ostream &s) {
       actual->nth(i)->code(s);
       emit_push(ACC,s);
   }
+  ////////////////
+
 
   expr->code(s);
   
@@ -1379,31 +1364,43 @@ void static_dispatch_class::code(ostream &s) {
 
 void dispatch_class::code(ostream &s) {
   s << "dispatch" << endl;
-  expr->code(s);
 
-  
-  int void_label = set_new_label();
-
-  emit_beqz(ACC,void_label, s);       //Test for dispatch on void
-  
   //Stack arguments
-  //
-  ///////////////////
-  emit_load(T1, DISPTABLE_OFFSET, ACC, s);
+  for(int i = actual->first(); actual->more(i); i = actual->next(i)){
+      actual->nth(i)->code(s);
+      emit_push(ACC,s);
+  }
 
-
-
-  //Get disptable
+  expr->code(s);
   
+  int disp_label = set_new_label();
+
+  emit_bne(ACC,ZERO,disp_label, s);         //Test for dispatch on void
 
 
-  //Void Label
-  emit_label_def(void_label, s);
+  /////// Dispatch on void ///////////////
   emit_partial_load_address(ACC, s);
   stringtable.lookup_string(filename->get_string())->code_ref(s);
   s << endl;
   emit_load_imm(T1,this->get_line_number(),s);
   emit_jal("_dispatch_abort",s);
+  ////////////////////////////////////////
+
+  emit_label_def(disp_label, s);
+
+  emit_load(T1, DISPTABLE_OFFSET, ACC, s);    //Get disptable
+  
+  cout << expr->get_type()<< endl;
+
+  std::pair<int, CgenNodeP> *obj_class = (class_table->lookup(expr->get_type()));
+  CgenNodeP nd = obj_class->second;
+
+  int meth_offset = get_meth_offset(nd,name);
+
+  emit_load(T1,meth_offset, T1, s);
+
+  emit_jalr(T1,s);
+
 }
 
 void cond_class::code(ostream &s) {

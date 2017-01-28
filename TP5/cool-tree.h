@@ -91,6 +91,7 @@ public:
    virtual Expression copy_Expression() = 0;
    virtual bool is_noexpr() = 0;
    virtual int count_stack(int) = 0;
+
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
 #endif

@@ -74,7 +74,8 @@ class Main inherits A {
       --   out_int(x8);
       -- };
       -- let x:Int in x<-b;
-      self@A.a(5,3);
+      -- self@A.a(5,3);
+      self.a(5,3);
     }
   };
 

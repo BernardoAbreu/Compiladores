@@ -467,10 +467,10 @@ Main.main:
 	move	$a0 $s0
 	bne	$a0 $zero label0
 	la	$a0 str_const1
-	li	$t1 77
+	li	$t1 78
 	jal	_dispatch_abort
 label0:
-	la	$t1 A_dispTab
+	lw	$t1 8($a0)
 	lw	$t1 28($t1)
 	jalr		$t1
 	lw	$fp 12($sp)
