@@ -108,6 +108,10 @@ public:
 
    virtual int count_stack(int) = 0;
 
+   virtual void code(ostream&) = 0;
+
+   virtual void set_label(int) = 0;
+
 #ifdef Case_EXTRAS
    Case_EXTRAS
 #endif
@@ -283,6 +287,8 @@ public:
    Symbol name;
    Symbol type_decl;
    Expression expr;
+   int offset;
+   int end_label;
 public:
    branch_class(Symbol a1, Symbol a2, Expression a3) {
       name = a1;
@@ -293,6 +299,9 @@ public:
    void dump(ostream& stream, int n);
 
    int count_stack(int);
+   void code(ostream&);
+
+   void set_label(int label) { end_label = label; }
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS

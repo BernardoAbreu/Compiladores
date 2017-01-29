@@ -3,9 +3,14 @@
     as possible.
  *)
 
-class A inherits IO{
+class B {
+  tt:Int <- 0;
+};
+
+
+class A{
   b:Bool <- true;
-  bb:Bool <- b;
+  bb:Bool;
   s : String <- "Hello";
 
   a(x:Int,y:Int):Int { x+y} ;
@@ -20,7 +25,7 @@ class Main inherits A {
 
 --  v1 : SELF_TYPE <- (new SELF_TYPE);
   v2 : Int <- 1 + 4;
-
+  cas : SELF_TYPE;
 
 
   --b():Int {1};
@@ -75,9 +80,21 @@ class Main inherits A {
       -- };
       -- let x:Int in x<-b;
       -- self@A.a(5,3);
-      self.a(5,3);
+      -- c.a(5,3);
+      case cas of
+                a : Int => a <- 5;
+                b : String => 0;
+                c : Bool => 0;
+                d : B => d;
+      esac;
     }
   };
 
     a(x:Int,y:Int):Int { x+2} ;
+};
+
+class D inherits B{
+
+  bb:Bool;
+
 };

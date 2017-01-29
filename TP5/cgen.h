@@ -25,8 +25,8 @@ private:
 
 ///////////////////////////////////
    int number_of_classes;
-
-   void set_tags();
+   Symbol *tags;
+   void set_tags(CgenNodeP);
 ///////////////////////////////////
 
 
@@ -103,7 +103,13 @@ class BoolConst
 };
 
 
-SymbolTable<Symbol, std::pair<int, CgenNodeP> > *class_table;
+typedef struct {
+  int tag;
+  CgenNodeP class_node;
+} obj_elem;
+
+
+SymbolTable<Symbol, obj_elem > *class_table;
 
 typedef struct {
   Symbol type;

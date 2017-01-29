@@ -366,7 +366,7 @@ static void emit_gc_check(char *source, ostream &s)
 // My emit functions
 ///////////////////////////////////////////////////////////
 static void emit_jal_init(Symbol sym,ostream &s)
-{ s << JAL; emit_init_ref(sym, s); s<< endl; }
+{ s << JAL; emit_init_ref(sym, s); s << endl; }
 ///////////////////////////////////////////////////////////
 
 
@@ -635,13 +635,11 @@ void CgenClassTable::code_constants()
 
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
-   stringclasstag = 4 /* Change to your String class tag here */;
-   intclasstag =    2 /* Change to your Int class tag here */;
-   boolclasstag =   3 /* Change to your Bool class tag here */;
+  
 
    label_index = 0;
 
-   class_table = new SymbolTable<Symbol, std::pair<int, CgenNodeP> >();
+   class_table = new SymbolTable<Symbol, obj_elem>();
 
    enterscope();
 
@@ -651,10 +649,18 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    build_inheritance_tree();
 
    class_table->enterscope();
-   set_tags();
+
+   tags = new Symbol[number_of_classes];
+   number_of_classes = 0;
+   set_tags(root());
+
+   stringclasstag =  class_table->lookup(Str)->tag;
+   intclasstag =     class_table->lookup(Int)->tag;
+   boolclasstag =    class_table->lookup(Bool)->tag;
    code();
    class_table->exitscope();
    exitscope();
+   delete tags;
 }
 
 void CgenClassTable::install_basic_classes()
@@ -798,6 +804,7 @@ void CgenClassTable::install_class(CgenNodeP nd)
   // and the symbol table.
   nds = new List<CgenNode>(nd,nds);
   addid(name,nd);
+
   number_of_classes++;
 }
 
@@ -858,11 +865,11 @@ int build_attribute_table(CgenNodeP nd){
     int attr_n = build_attribute_table(nd->get_parentnd());
 
     Features feats = nd->features;
+    Feature feat;
 
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
+      feat = feats->nth(i);
       if(!feat->is_method()){
-        //attribute_table->addid(feat->get_name(), new std::pair<int, char*>(attr_n + DEFAULT_OBJFIELDS,SELF));
         attribute_table->addid(feat->get_name(), new attr_elem{feat->get_type(),attr_n + DEFAULT_OBJFIELDS,SELF});
         attr_n++;
       }
@@ -872,12 +879,13 @@ int build_attribute_table(CgenNodeP nd){
 
 
 
-void CgenClassTable::set_tags(){
-    int i = number_of_classes - 1;
+void CgenClassTable::set_tags(CgenNodeP nd){
 
-    for(List<CgenNode> *l = nds; l && (i >= 0); l = l->tl(), i--){
-      CgenNodeP nd = l->hd();
-      class_table->addid(nd->get_name(), new std::pair<int, CgenNodeP>(i,nd));
+    class_table->addid(nd->get_name(), new obj_elem{number_of_classes,nd});
+    tags[number_of_classes] = nd->get_name();
+    number_of_classes++;
+    for(List<CgenNode> *l = nd->get_children(); l; l = l->tl()){
+      set_tags(l->hd());
     }
 }
 
@@ -890,9 +898,10 @@ void code_disp_list(CgenNodeP nd, std::list<std::pair<Symbol,Symbol> > *meth_lis
     }
 
     Features feats = nd->features;
-
+    Feature feat;
+    
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-        Feature feat = feats->nth(i);
+        feat = feats->nth(i);
 
         if(feat->is_method()){
             bool inserted = false;
@@ -934,67 +943,51 @@ void CgenClassTable::code_disp_tables(){
 }
 
 
-void code_class_nameTab_help(List<CgenNode> *l, ostream& s){
-      Symbol class_name = l->hd()->get_name();
-      if(class_name != Object){
-          code_class_nameTab_help(l->tl(),s);
-      }
-
-      s << WORD;
-      stringtable.lookup_string(class_name->get_string())->code_ref(s);
-      s << endl;
-}
-
-
 void CgenClassTable::code_class_nameTab(){
     str << CLASSNAMETAB << LABEL;
 
-    code_class_nameTab_help(nds,str);
+    for(int i = 0; i < number_of_classes; i++){
+      Symbol class_name = tags[i];
+
+      str << WORD;
+      stringtable.lookup_string(class_name->get_string())->code_ref(str);
+      str << endl;
+    }
 }
 
-
-void code_class_objTab_help(List<CgenNode> *l, ostream& s){
-
-      Symbol class_name = l->hd()->get_name();
-
-      if(class_name != Object){
-          code_class_objTab_help(l->tl(),s);
-      }
-
-      s << WORD;
-      emit_protobj_ref(class_name, s);
-      s << endl << WORD;
-      emit_init_ref(class_name, s);
-      s << endl;
-
-}
 
 void CgenClassTable::code_class_objTab(){
     str << CLASSOBJTAB << LABEL;
 
-    code_class_objTab_help(nds,str);
-}
+    for(int i = 0; i < number_of_classes; i++){
+      Symbol class_name = tags[i];
 
-
-
-int get_attr_size(CgenNodeP nd){
-
-   Symbol class_name = nd->get_name();
-    if( class_name == No_class)
-      return 0;
-
-    int attr_n = 0;
-
-    Features feats = nd->features;
-
-    for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
-      if(!feat->is_method()){
-        attr_n++;
-      }
+      str << WORD;
+      emit_protobj_ref(class_name, str);
+      str << endl << WORD;
+      emit_init_ref(class_name, str);
+      str << endl;
     }
 
-    return attr_n + get_attr_size(nd->get_parentnd());
+}
+
+int get_attr_size(CgenNodeP nd){
+    int attr_n = 0;
+
+    while(nd->get_name() != No_class){
+      Features feats = nd->features;
+      Feature feat;
+      for(int i = feats->first(); feats->more(i); i = feats->next(i)){
+        feat = feats->nth(i);
+        if(!feat->is_method()){
+          attr_n++;
+        }
+      }
+
+      nd = nd->get_parentnd();
+    }
+    
+    return attr_n;
 }
 
 
@@ -1030,9 +1023,10 @@ void code_proto_attributes( CgenNodeP nd, ostream& s){
     code_proto_attributes(nd->get_parentnd(), s);
 
     Features feats = nd->features;
+    Feature feat;
 
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
+      feat = feats->nth(i);
       if(!feat->is_method()){
         Symbol feat_type = feat->get_type();
         s << WORD;
@@ -1064,7 +1058,7 @@ void CgenClassTable::code_proto_object_def( CgenNodeP nd, ostream& s){
     Symbol obj_name = nd->get_name();
 
     emit_protobj_ref(obj_name, s);;  s << LABEL                     // label
-        << WORD << class_table->lookup(obj_name)->first << endl     // class tag
+        << WORD << class_table->lookup(obj_name)->tag << endl       // class tag
         << WORD << (DEFAULT_OBJFIELDS + get_attr_size(nd)) << endl  // object size
         << WORD; 
 
@@ -1126,8 +1120,9 @@ void code_initializer(CgenNodeP nd, ostream& s){
 
   int offset = DEFAULT_OBJFIELDS + get_attr_size(nd->get_parentnd());
 
+  Feature feat;
   for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-      Feature feat = feats->nth(i);
+      feat = feats->nth(i);
       if(!feat->is_method()){
           feat->code(offset++,s);
       }
@@ -1168,10 +1163,10 @@ void method_class::code(int dummy, ostream &s) {
         formal_length++;
     }
 
+    Formal formal;
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
-        Formal formal = formals->nth(i);
+        formal = formals->nth(i);
         formal_length--;
-        // attribute_table->addid(formal->get_name(), new std::pair<int, char*>(formal_length + stack_size,FP));
         attribute_table->addid(formal->get_name(), new attr_elem{formal->get_type(),formal_length + stack_size,FP});
     }
 
@@ -1198,13 +1193,13 @@ void CgenClassTable::code_methods(){
 
         class_table->enterscope();
 
-        class_table->addid(SELF_TYPE, new std::pair<int, CgenNodeP>(-1,nd));
+        class_table->addid(SELF_TYPE, new obj_elem{-1,nd});
         
         if(!nd->basic()){
           Features feats = nd->features;
-
+          Feature feat;
           for(int i = feats->first(); feats->more(i); i = feats->next(i)){
-              Feature feat = feats->nth(i);
+              feat = feats->nth(i);
               if(feat->is_method()){
                   emit_method_ref(nd->get_name(), feat->get_name(), str); str << LABEL;
                       feat->code(0,str);
@@ -1223,11 +1218,29 @@ int set_new_label(){
 }
 
 
+void get_biggest_son_tag_helper(CgenNodeP nd, int *tag){
+    
+    (*tag)++;
+    for(List<CgenNode> *l = nd->get_children(); l; l = l->tl()){
+      get_biggest_son_tag_helper(l->hd(),tag);
+    }
+}
+
+int get_biggest_son_tag(CgenNodeP nd){
+    int tag = class_table->lookup(nd->get_name())->tag;
+    for(List<CgenNode> *l = nd->get_children(); l; l = l->tl()){
+      get_biggest_son_tag_helper(l->hd(),&tag);
+    }
+    return tag;
+}
+
+
+
 void CgenClassTable::code()
 {
 
-  //attribute_table = new SymbolTable<Symbol, std::pair<int, char*> > ();
   attribute_table = new SymbolTable<Symbol, attr_elem> ();
+
   if (cgen_debug) cout << "coding global data" << endl;
   code_global_data();
 
@@ -1308,6 +1321,36 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //
 //*****************************************************************
 
+void branch_class::code(ostream &s){
+  s << "# Start of Branch" << endl;
+  attribute_table->enterscope();
+  attribute_table->addid(name, new attr_elem{type_decl,offset,FP});
+
+  obj_elem *obj = class_table->lookup(type_decl);
+
+  CgenNodeP nd = obj->class_node;
+  int smallest_tag = obj->tag;
+  int biggest_tag = get_biggest_son_tag(nd);
+
+
+  int next_label = set_new_label();
+
+  emit_blti(T2,smallest_tag,next_label,s);
+  emit_bgti(T2,biggest_tag,next_label,s);
+
+
+  emit_store(ACC,offset,FP,s);
+
+  expr->code(s);
+  attribute_table->exitscope();
+
+  emit_branch(end_label,s);
+  emit_label_ref(next_label,s);
+  s << LABEL;
+  s << "# End of Branch" << endl;
+}
+
+
 void assign_class::code(ostream &s) {
   s << "# Start of assign" << endl;
   expr->code(s);
@@ -1315,6 +1358,7 @@ void assign_class::code(ostream &s) {
   attr_elem *obj = (attribute_table->lookup(name));
 
   emit_store(ACC, obj->offset,obj->reg, s);
+  s << "# End of assign" << endl;
 
 }
 
@@ -1349,8 +1393,8 @@ void static_dispatch_class::code(ostream &s) {
   emit_disptable_ref(type_name, s);
   s << endl;
 
-  std::pair<int, CgenNodeP> *obj_class = (class_table->lookup(type_name));
-  CgenNodeP nd = obj_class->second;
+  obj_elem *obj_class = (class_table->lookup(type_name));
+  CgenNodeP nd = obj_class->class_node;
 
   int meth_offset = get_meth_offset(nd,name);
 
@@ -1390,8 +1434,8 @@ void dispatch_class::code(ostream &s) {
 
   emit_load(T1, DISPTABLE_OFFSET, ACC, s);    //Get disptable
 
-  std::pair<int, CgenNodeP> *obj_class = (class_table->lookup(expr->get_type()));
-  CgenNodeP nd = obj_class->second;
+  obj_elem *obj_class = (class_table->lookup(expr->get_type()));
+  CgenNodeP nd = obj_class->class_node;
 
   int meth_offset = get_meth_offset(nd,name);
 
@@ -1451,7 +1495,43 @@ void loop_class::code(ostream &s) {
 }
 
 void typcase_class::code(ostream &s) {
-  s << "typcase" << endl;
+  s << "# Start of case" << endl;
+
+
+  expr->code(s);
+
+  int end_label = set_new_label();
+  int case_label = set_new_label();
+
+
+  emit_bne(ACC,ZERO,case_label, s);         //Test for dispatch on void
+
+  /////// case on void ///////////////
+  emit_partial_load_address(ACC, s);
+  stringtable.lookup_string(filename->get_string())->code_ref(s);
+  s << endl;
+  emit_load_imm(T1,this->get_line_number(),s);
+  emit_jal("_case_abort_2",s);
+  ////////////////////////////////////////
+
+  emit_label_def(case_label, s);
+
+  emit_load(T2,0,ACC,s);        //Get Tag
+
+  Case branch;
+  for(int i = cases->first(); cases->more(i); i = cases->next(i)){
+      branch = cases->nth(i);
+      branch->set_label(end_label);
+      branch->code(s);
+  }
+
+  //no match
+  emit_jal("_case_abort",s);
+
+
+  emit_label_def(end_label, s);
+
+  s << "# End of case" << endl;
 }
 
 void block_class::code(ostream &s) {
@@ -1463,8 +1543,8 @@ void block_class::code(ostream &s) {
 void let_class::code(ostream &s) {
   s << "# Start of let" << endl;
   attribute_table->enterscope();
-  //attribute_table->addid(identifier, new std::pair<int, char*>(offset,FP));
-  attribute_table->addid(identifier, new  attr_elem{type_decl,offset,FP});
+
+  attribute_table->addid(identifier, new attr_elem{type_decl,offset,FP});
 
   if(init->is_noexpr()){
     emit_partial_load_address(ACC, s);
@@ -1676,7 +1756,7 @@ void new__class::code(ostream &s) {
       emit_push(T1,s);                        //Store location of protoObj
       emit_load(ACC,0,T1,s);                  //Puts location of protoObj on accumulator
       emit_jal("Object.copy",s);              //Allocates new object on heap     
-      emit_pop(T1,s);                         //Retrives location of protoObj
+      emit_pop(T1,s);                         //Retrieves location of protoObj
       emit_addiu(T1, T1, 4, s);               //Gets location of init (Following position to protoObj on ObjTab)
       emit_jalr(T1, s);                       //Jumps to class init
   }
@@ -1717,7 +1797,9 @@ void object_class::code(ostream &s) {
   }
   else{
     attr_elem *obj = (attribute_table->lookup(name));
+
     emit_load(ACC, obj->offset, obj->reg, s);
+
   }
   
   s << "# End of object" << endl;
@@ -1727,7 +1809,9 @@ void object_class::code(ostream &s) {
 
 
 int branch_class::count_stack(int depth){
-  return expr->count_stack(depth);
+  offset = depth;
+
+  return 1 + expr->count_stack(depth+1);
 }
 
 
@@ -1736,11 +1820,13 @@ int assign_class::count_stack(int depth) {
 }
 
 int static_dispatch_class::count_stack(int depth) {
-  int expr_c = expr->count_stack(depth);
-  int actual_c = 0;
+  int expr_c, actual_c, c;
+  
+  expr_c = expr->count_stack(depth);
+  actual_c = 0;
 
   for(int i = actual->first(); actual->more(i); i = actual->next(i)){
-      int c = actual->nth(i)->count_stack(depth);
+      c = actual->nth(i)->count_stack(depth);
       if (c > actual_c){
         actual_c = c;
       }
@@ -1751,11 +1837,13 @@ int static_dispatch_class::count_stack(int depth) {
 }
 
 int dispatch_class::count_stack(int depth) {
-  int expr_c = expr->count_stack(depth);
-  int actual_c = 0;
+  int expr_c, actual_c, c;
+  
+  expr_c = expr->count_stack(depth);
+  actual_c = 0;
 
   for(int i = actual->first(); actual->more(i); i = actual->next(i)){
-      int c = actual->nth(i)->count_stack(depth);
+      c = actual->nth(i)->count_stack(depth);
       if (c > actual_c){
         actual_c = c;
       }
@@ -1766,7 +1854,8 @@ int dispatch_class::count_stack(int depth) {
 }
 
 int cond_class::count_stack(int depth) {
-  int pred_c,then_c,else_c;
+  int pred_c, then_c, else_c;
+
   pred_c = pred->count_stack(depth);
   then_c = then_exp->count_stack(depth);
   else_c = else_exp->count_stack(depth);
@@ -1776,38 +1865,50 @@ int cond_class::count_stack(int depth) {
 
 int loop_class::count_stack(int depth) {
   int pred_c, body_c;
+
   pred_c = pred->count_stack(depth);
   body_c = body->count_stack(depth);
+
   return (pred_c > body_c) ? pred_c : body_c;
 }
 
 int typcase_class::count_stack(int depth) {
-  int count = 0;
+  int expr_c, count;
+  
+  count = 0;
+  
   for(int i = cases->first(); cases->more(i); i = cases->next(i)){
       int c = cases->nth(i)->count_stack(depth);
       if (c > count){
         count = c;
       }
   }
-  int expr_c = expr->count_stack(depth);
+  
+  expr_c = expr->count_stack(depth);
+  
   return (count > expr_c) ? count : expr_c;
 }
 
 int block_class::count_stack(int depth) {
-  int count = 0;
+  int c, count = 0;
+
   for(int i = body->first(); body->more(i); i = body->next(i)){
-      int c = body->nth(i)->count_stack(depth);
+      c = body->nth(i)->count_stack(depth);
       if (c > count){
         count = c;
       }
   }
+
   return count;
 }
 
 int let_class::count_stack(int depth) {
+  int init_c, body_c;
+  
   offset = depth;
-  int init_c = init->count_stack(depth+1);
-  int body_c = body->count_stack(depth+1);
+  init_c = init->count_stack(depth+1);
+  body_c = body->count_stack(depth+1);
+
   return 1 + ((init_c > body_c) ? init_c : body_c);
 }
 
