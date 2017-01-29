@@ -1097,7 +1097,7 @@ void deallocate_stack(int stack_size, ostream &s){
     emit_load(FP, stack_size, SP,s);
     emit_load(SELF, stack_size-1, SP,s);
     emit_load(RA, stack_size-2, SP,s);
-    emit_addiu(SP, SP, WORD_SIZE*stack_size, s);
+    
 }
 
 
@@ -1133,15 +1133,25 @@ void code_initializer(CgenNodeP nd, ostream& s){
   emit_move(ACC, SELF,s);
  
   deallocate_stack(3, s);
+  emit_addiu(SP, SP, WORD_SIZE*3, s);
   emit_return(s);
 }
 
 
 void CgenClassTable::code_initializers(){
+    CgenNodeP nd;
     for(List<CgenNode> *l = nds; l; l = l->tl()){
-      emit_init_ref(l->hd()->get_name(),str);
+      nd = l->hd();
+      filename = nd->filename;
+
+      class_table->enterscope();
+
+      class_table->addid(SELF_TYPE, new obj_elem{-1,nd});
+
+      emit_init_ref(nd->get_name(),str);
       str << LABEL;
-      code_initializer(l->hd(), str);
+      code_initializer(nd, str);
+      class_table->exitscope();
     }
 }
 
@@ -1163,6 +1173,7 @@ void method_class::code(int dummy, ostream &s) {
         formal_length++;
     }
 
+    int number_of_parameters = formal_length;
     Formal formal;
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
         formal = formals->nth(i);
@@ -1176,6 +1187,7 @@ void method_class::code(int dummy, ostream &s) {
 
     
     deallocate_stack(stack_size,s);
+    emit_addiu(SP, SP, WORD_SIZE*(stack_size+number_of_parameters), s);
     emit_return(s);
 }
 
@@ -1511,7 +1523,7 @@ void typcase_class::code(ostream &s) {
   stringtable.lookup_string(filename->get_string())->code_ref(s);
   s << endl;
   emit_load_imm(T1,this->get_line_number(),s);
-  emit_jal("_case_abort_2",s);
+  emit_jal("_case_abort2",s);
   ////////////////////////////////////////
 
   emit_label_def(case_label, s);
