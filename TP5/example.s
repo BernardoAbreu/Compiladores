@@ -73,7 +73,7 @@ str_const7:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const5
+	.word	int_const6
 	.ascii	"String"
 	.byte	0	
 	.align	2
@@ -91,7 +91,7 @@ str_const5:
 	.word	4
 	.word	5
 	.word	String_dispTab
-	.word	int_const6
+	.word	int_const5
 	.ascii	"Int"
 	.byte	0	
 	.align	2
@@ -109,7 +109,7 @@ str_const3:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const5
+	.word	int_const6
 	.ascii	"Object"
 	.byte	0	
 	.align	2
@@ -157,13 +157,13 @@ int_const6:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	3
+	.word	6
 	.word	-1
 int_const5:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	6
+	.word	3
 	.word	-1
 int_const4:
 	.word	2
@@ -297,7 +297,7 @@ A_protObj:
 	.word	-1
 Main_protObj:
 	.word	8
-	.word	9
+	.word	10
 	.word	Main_dispTab
 	.word	bool_const0
 	.word	bool_const0
@@ -305,6 +305,7 @@ Main_protObj:
 	.word	0
 	.word	int_const0
 	.word	0
+	.word	int_const0
 	.word	-1
 B_protObj:
 	.word	5
@@ -403,6 +404,24 @@ Main_init:
 	add	$t1 $t1 $t2
 	sw	$t1 12($a0)
 	sw	$a0 28($s0)
+	la	$a0 int_const3
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	la	$a0 int_const4
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	la	$a0 A_protObj
+	jal	Object.copy
+	jal	A_init
+	bne	$a0 $zero label0
+	la	$a0 str_const0
+	li	$t1 29
+	jal	_dispatch_abort
+label0:
+	lw	$t1 8($a0)
+	lw	$t1 12($t1)
+	jalr		$t1
+	sw	$a0 36($s0)
 	move	$a0 $s0
 	lw	$s1 0($fp)
 	lw	$fp 16($sp)
@@ -518,52 +537,31 @@ A.a:
 	addiu	$sp $sp 24
 	jr	$ra	
 Main.main:
-	addiu	$sp $sp -16
-	sw	$fp 16($sp)
-	sw	$s0 12($sp)
-	sw	$ra 8($sp)
+	addiu	$sp $sp -12
+	sw	$fp 12($sp)
+	sw	$s0 8($sp)
+	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-	sw	$s1 0($fp)
-	lw	$a0 32($s0)
+	la	$a0 int_const3
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	la	$a0 int_const5
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	move	$a0 $s0
 	bne	$a0 $zero label1
 	la	$a0 str_const0
-	li	$t1 84
-	jal	_case_abort2
+	li	$t1 82
+	jal	_dispatch_abort
 label1:
-	lw	$t2 0($a0)
-	blt	$t2 5 label2
-	bgt	$t2 6 label2
-	move	$s1 $a0
-	move	$a0 $s1
-	b	label0
-label2:
-	blt	$t2 4 label3
-	bgt	$t2 4 label3
-	move	$s1 $a0
-	la	$a0 int_const0
-	b	label0
-label3:
-	blt	$t2 3 label4
-	bgt	$t2 3 label4
-	move	$s1 $a0
-	la	$a0 int_const0
-	b	label0
-label4:
-	blt	$t2 2 label5
-	bgt	$t2 2 label5
-	move	$s1 $a0
-	la	$s1 int_const3
-	move	$a0 $s1
-	b	label0
-label5:
-	jal	_case_abort
-label0:
-	lw	$s1 0($fp)
-	lw	$fp 16($sp)
-	lw	$s0 12($sp)
-	lw	$ra 8($sp)
-	addiu	$sp $sp 16
+	la	$t1 A_dispTab
+	lw	$t1 12($t1)
+	jalr		$t1
+	lw	$fp 12($sp)
+	lw	$s0 8($sp)
+	lw	$ra 4($sp)
+	addiu	$sp $sp 12
 	jr	$ra	
 Main.a:
 	addiu	$sp $sp -16

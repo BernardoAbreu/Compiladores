@@ -26,7 +26,7 @@ class Main inherits A {
 --  v1 : SELF_TYPE <- (new SELF_TYPE);
   v2 : Int <- 1 + 4;
   cas : SELF_TYPE;
-
+  d : Int <- (new A).a(5,2);
 
   --b():Int {1};
 
@@ -79,14 +79,14 @@ class Main inherits A {
       --   out_int(x8);
       -- };
       -- let x:Int in x<-b;
-      -- self@A.a(5,3);
+       self@A.a(5,3);
       -- c.a(5,3);
-      case cas of
-                a : Int => a <- 5;
-                b : String => 0;
-                c : Bool => 0;
-                d : B => d;
-      esac;
+      -- case cas of
+      --           a : Int => a <- 5;
+      --           b : String => 0;
+      --           c : Bool => 0;
+      --           d : B => d;
+      -- esac;
     }
   };
 

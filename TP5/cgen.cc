@@ -870,7 +870,7 @@ int build_attribute_table(CgenNodeP nd){
     for(int i = feats->first(); feats->more(i); i = feats->next(i)){
       feat = feats->nth(i);
       if(!feat->is_method()){
-        attribute_table->addid(feat->get_name(), new attr_elem{feat->get_type(),attr_n + DEFAULT_OBJFIELDS,SELF});
+        attribute_table->addid(feat->get_name(), new attr_elem{attr_n + DEFAULT_OBJFIELDS,SELF});
         attr_n++;
       }
     }
@@ -1178,7 +1178,7 @@ void method_class::code(int dummy, ostream &s) {
     for(int i = formals->first(); formals->more(i); i = formals->next(i)){
         formal = formals->nth(i);
         formal_length--;
-        attribute_table->addid(formal->get_name(), new attr_elem{formal->get_type(),formal_length + stack_size,FP});
+        attribute_table->addid(formal->get_name(), new attr_elem{formal_length + stack_size,FP});
     }
 
     expr->code(s);
@@ -1336,7 +1336,7 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 void branch_class::code(ostream &s){
   s << "# Start of Branch" << endl;
   attribute_table->enterscope();
-  attribute_table->addid(name, new attr_elem{type_decl,offset,FP});
+  attribute_table->addid(name, new attr_elem{offset,FP});
 
   obj_elem *obj = class_table->lookup(type_decl);
 
@@ -1556,7 +1556,7 @@ void let_class::code(ostream &s) {
   s << "# Start of let" << endl;
   attribute_table->enterscope();
 
-  attribute_table->addid(identifier, new attr_elem{type_decl,offset,FP});
+  attribute_table->addid(identifier, new attr_elem{offset,FP});
 
   if(init->is_noexpr()){
     emit_partial_load_address(ACC, s);

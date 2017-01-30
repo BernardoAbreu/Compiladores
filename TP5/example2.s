@@ -74,7 +74,7 @@ str_const10:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const5
+	.word	int_const6
 	.ascii	"String"
 	.byte	0	
 	.align	2
@@ -92,7 +92,7 @@ str_const8:
 	.word	4
 	.word	5
 	.word	String_dispTab
-	.word	int_const6
+	.word	int_const5
 	.ascii	"Int"
 	.byte	0	
 	.align	2
@@ -110,7 +110,7 @@ str_const6:
 	.word	4
 	.word	6
 	.word	String_dispTab
-	.word	int_const5
+	.word	int_const6
 	.ascii	"Object"
 	.byte	0	
 	.align	2
@@ -191,13 +191,13 @@ int_const6:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	3
+	.word	6
 	.word	-1
 int_const5:
 	.word	2
 	.word	4
 	.word	Int_dispTab
-	.word	6
+	.word	3
 	.word	-1
 int_const4:
 	.word	2
@@ -325,7 +325,7 @@ D_protObj:
 	.word	-1
 Main_protObj:
 	.word	8
-	.word	9
+	.word	10
 	.word	Main_dispTab
 	.word	bool_const0
 	.word	bool_const0
@@ -333,6 +333,7 @@ Main_protObj:
 	.word	0
 	.word	int_const0
 	.word	0
+	.word	int_const0
 	.word	-1
 A_protObj:
 	.word	7
@@ -427,6 +428,28 @@ Main_init:
 	sw	$t1 12($a0)
 # End of plus
 	sw	$a0 28($s0)
+# Start of dispatch
+	la	$a0 int_const3
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	la	$a0 int_const4
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+# Start of new
+	la	$a0 A_protObj
+	jal	Object.copy
+	jal	A_init
+# End of new
+	bne	$a0 $zero label0
+	la	$a0 str_const0
+	li	$t1 29
+	jal	_dispatch_abort
+label0:
+	lw	$t1 8($a0)
+	lw	$t1 12($t1)
+	jalr		$t1
+# End of dispatch
+	sw	$a0 36($s0)
 	move	$a0 $s0
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
@@ -537,66 +560,35 @@ Object_init:
 	addiu	$sp $sp 12
 	jr	$ra	
 Main.main:
-	addiu	$sp $sp -16
-	sw	$fp 16($sp)
-	sw	$s0 12($sp)
-	sw	$ra 8($sp)
+	addiu	$sp $sp -12
+	sw	$fp 12($sp)
+	sw	$s0 8($sp)
+	sw	$ra 4($sp)
 	addiu	$fp $sp 4
 	move	$s0 $a0
-# Start of case
+# Start of static_dispatch
+	la	$a0 int_const3
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
+	la	$a0 int_const5
+	sw	$a0 0($sp)
+	addiu	$sp $sp -4
 # Start of object
-	lw	$a0 32($s0)
+	move	$a0 $s0
 # End of object
 	bne	$a0 $zero label1
 	la	$a0 str_const0
-	li	$t1 84
-	jal	_case_abort_2
+	li	$t1 82
+	jal	_dispatch_abort
 label1:
-	lw	$t2 0($a0)
-# Start of Branch
-	blt	$t2 2 label2
-	bgt	$t2 2 label2
-	sw	$a0 0($fp)
-# Start of assign
-	la	$a0 int_const3
-	sw	$a0 0($fp)
-# End of assign
-	b	label0
-label2:
-# End of Branch
-# Start of Branch
-	blt	$t2 4 label3
-	bgt	$t2 4 label3
-	sw	$a0 0($fp)
-	la	$a0 int_const0
-	b	label0
-label3:
-# End of Branch
-# Start of Branch
-	blt	$t2 3 label4
-	bgt	$t2 3 label4
-	sw	$a0 0($fp)
-	la	$a0 int_const0
-	b	label0
-label4:
-# End of Branch
-# Start of Branch
-	blt	$t2 5 label5
-	bgt	$t2 6 label5
-	sw	$a0 0($fp)
-# Start of object
-	lw	$a0 0($fp)
-# End of object
-	b	label0
-label5:
-# End of Branch
-	jal	_case_abort
-label0:
-# End of case
-	lw	$fp 16($sp)
-	lw	$s0 12($sp)
-	lw	$ra 8($sp)
-	addiu	$sp $sp 16
+	la	$t1 A_dispTab
+	lw	$t1 12($t1)
+	jalr		$t1
+# End of static_dispatch
+	lw	$fp 12($sp)
+	lw	$s0 8($sp)
+	lw	$ra 4($sp)
+	addiu	$sp $sp 12
 	jr	$ra	
 Main.a:
 	addiu	$sp $sp -12
@@ -623,7 +615,7 @@ Main.a:
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
 	lw	$ra 4($sp)
-	addiu	$sp $sp 12
+	addiu	$sp $sp 20
 	jr	$ra	
 A.a:
 	addiu	$sp $sp -12
@@ -652,7 +644,7 @@ A.a:
 	lw	$fp 12($sp)
 	lw	$s0 8($sp)
 	lw	$ra 4($sp)
-	addiu	$sp $sp 12
+	addiu	$sp $sp 20
 	jr	$ra	
 
 # end of generated code

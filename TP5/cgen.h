@@ -112,7 +112,6 @@ typedef struct {
 SymbolTable<Symbol, obj_elem > *class_table;
 
 typedef struct {
-  Symbol type;
   int offset;
   char* reg;
 } attr_elem;
